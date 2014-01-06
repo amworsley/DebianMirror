@@ -1,0 +1,63 @@
+
+  This python3 script lets you mirror security updates which is something that is not always supported by other
+  mirrors, probably for security reasons. They want you to always go direct to the original debian repository when
+  you can. It might also allow you to mirror general releases, but I haven't tested that yet.
+
+  Run ./RepositoryMirror.py -h to see basic usage
+  Run ./RepositoryMirror.py -create : Initialise the Repository Mirror (default security.debian.org)
+  Run ./RepositoryMirror.py : Shows amount of data to update missing packages
+  Run ./RepositoryMirror.py -fetch : Actually goes and fetches the missing files - initially may be 1-2 Gigabytes!
+
+  Note:
+      Option -v will add more details to operations
+      Edit RM.cfg to alter the repository/Distrubution/architectures to be mirrored
+
+  Use the local mirror by adding in a line such as:
+
+# local security mirror
+  deb file:///local/work/RepositoryMirror/security.debian.org/ wheezy/updates main contrib non-free
+
+  And then the usual :
+
+    apt-get update
+    apt-get upgrade
+
+  Note: I get the following apparently harmless "Ign file" lines:
+# apt-get update
+Ign file: wheezy/updates Release.gpg
+Get:1 file: wheezy/updates Release [102 kB]
+Ign file: wheezy/updates/contrib Translation-en
+Ign file: wheezy/updates/main Translation-en
+Ign file: wheezy/updates/non-free Translation-en
+Reading package lists... Done
+
+  The first non-blank part of the deb line is a URL so you can make the directory available by other methods such
+  as ftp or http to share the repository remotely.
+  e.g. Add something like this to /etc/apache2/sites-enabled/000-default
+
+    Alias /debs/ "/local/work/debs/"
+    <Directory "/local/work/debs/">
+        Options Indexes MultiViews FollowSymLinks
+        AllowOverride None
+        Order deny,allow
+        Deny from all
+        Allow from 10.0.0.0/16
+        Allow from 10.1.0.0/16
+        Allow from 127.0.0.0/255.0.0.0 ::1/128
+    </Directory>
+
+   Then create a symbolic link in the /local/work/debs/ to point to the security.debian.org directory
+
+ln -s ../RM/security.debian.org ../debs/security.debian.org
+
+   Then reload apache configuration with:
+
+/etc/init.d/apache2 reload
+
+    Note:
+     * I had to fix the permissions to allow apache to access this via: chmod -R a+r security.debian.org
+     * The apt-get update command reported the files as being untrusted perhaps because the signature/dates or
+     something were not matching.
+
+   * This is first cut untested except on security updates - be-aware hopefully it is useful.
+   * Patches/fixes welcome.
