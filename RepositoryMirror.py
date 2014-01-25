@@ -77,6 +77,14 @@ Dictionaries:
     architectures = 'amd64 all'
     tdir = 'tmp' # temporary directory prefix
 
+    def dump_info(self):
+        '''Print details of the configuration'''
+        print("Configuration file: ", self.cfgFile)
+        print("Repository: ", self.repository)
+        print("distributions: ", self.distributions)
+        print("components: ", self.components)
+        print("architectures: ", self.architectures)
+
     def config(cf=cfgFile):
         ''' Set up configuration - optionally read from RM.cfg'''
         if not os.access(RepositoryMirror.cfgFile, os.R_OK):
@@ -761,6 +769,10 @@ class TestRepositoryMirror(unittest.TestCase):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mirror A Debian Repository')
 
+    parser.add_argument('-c', dest='cfgFile', default='RM.cfg',
+        help='configuration file that defines repository to mirror')
+    parser.add_argument('-info', dest='info', action='store_true',
+        help='Print details of the Repository and exit')
     parser.add_argument('-n', dest='dry_run', action='store_true',
         help='Do not execute commands - print them. But creates temporary files')
     parser.add_argument('-N', dest='very_dry_run', action='store_true',
@@ -782,8 +794,13 @@ if __name__ == '__main__':
         unittest.TextTestRunner(verbosity=verbose).run(suite)
         sys.exit(0)
 
+    RepositoryMirror.cfgFile = args.cfgFile
     RepositoryMirror.config()
     repM = RepositoryMirror()
+
+    if args.info:
+        repM.dump_info()
+        sys.exit(0)
 
     nfails = 0
     if repM.skeletonCheck(args.create) != True:
