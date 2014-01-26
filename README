@@ -61,3 +61,6 @@ ln -s ../RM/security.debian.org ../debs/security.debian.org
 
    * This is first cut untested except on security updates - be-aware hopefully it is useful.
    * Patches/fixes welcome.
+
+Notes:
+      A local respository directory can be given with the non-standard URL syntax "file:abc" -> local directory "abc"

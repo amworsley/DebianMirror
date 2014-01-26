@@ -59,10 +59,7 @@ Dictionaries:
         self.dists = dists if dists else RepositoryMirror.distributions
         self.comps = comps if comps else RepositoryMirror.components
         self.archs = archs if archs else RepositoryMirror.architectures
-        if lmirror:
-            self.lmirror = lmirror
-        else:
-            self.lmirror = os.path.basename(self.repo)
+        self.lmirror = lmirror if lmirror else RepositoryMirror.lmirror
         self.updated = False
         self.changed_dists = []
 
@@ -76,6 +73,7 @@ Dictionaries:
     components = 'main contrib non-free'
     architectures = 'amd64 all'
     tdir = 'tmp' # temporary directory prefix
+    lmirror = os.path.basename(repository)
 
     def dump_info(self):
         '''Print details of the configuration'''
@@ -84,6 +82,8 @@ Dictionaries:
         print("distributions: ", self.distributions)
         print("components: ", self.components)
         print("architectures: ", self.architectures)
+        print("Local Mirror stored in : ", self.lmirror)
+        self.skeletonCheck(False)
 
     def config(cf=cfgFile):
         ''' Set up configuration - optionally read from RM.cfg'''
@@ -98,6 +98,7 @@ Dictionaries:
         RepositoryMirror.components = setup.get('components', RepositoryMirror.components).split()
         RepositoryMirror.architectures = setup.get('architectures', RepositoryMirror.architectures).split()
         RepositoryMirror.tdir = setup.get('tdir', RepositoryMirror.tdir)
+        RepositoryMirror.lmirror = setup.get('lmirror', RepositoryMirror.lmirror)
 
     def getPackagePath(self, dist=distributions[0], comp=components[0],
             arch=architectures[0]):
@@ -529,6 +530,8 @@ class CacheFile:
             if args.verbose:
                 print("Fetching %s -> %s" % (self.url, self.tfile))
 
+            # Note: supports non-standard syntax for local
+            # file "file:abc/def" means file at abd/def
             uf = urllib.request.urlopen(self.url)
 
             while True:
