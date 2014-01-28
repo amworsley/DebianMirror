@@ -1,8 +1,9 @@
 #! /bin/sh
 
-# Use RepositoryMirror to update mirrors
-RM=/movies3/work/RM
-PATH=$PATH:/usr/local/bin
+# Directory of RepositoryMirror 
+RM=/movies3/deb-mirror/
+# Path to RepositoryMirror.py script
+RMPATH=/usr/local/bin
 
 cd $RM
-RepositoryMirror.py -v -fetch
+$RMPATH/RepositoryMirror.py -v -fetch
