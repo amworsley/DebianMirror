@@ -60,6 +60,10 @@ Dictionaries:
         self.comps = comps if comps else RepositoryMirror.components
         self.archs = archs if archs else RepositoryMirror.architectures
         self.lmirror = lmirror if lmirror else RepositoryMirror.lmirror
+        if RepositoryMirror.pkgLists:
+            self.parsePkgLists(RepositoryMirror.pkgLists)
+        else:
+            self.pkgLists = None
         self.updated = False
         self.changed_dists = []
 
@@ -74,6 +78,7 @@ Dictionaries:
     architectures = 'amd64 all'
     tdir = 'tmp' # temporary directory prefix
     lmirror = os.path.basename(repository)
+    pkgLists = None # By default will mirror *all* deb packages
 
     def dump_info(self):
         '''Print details of the configuration'''
@@ -83,6 +88,11 @@ Dictionaries:
         print("components: ", self.components)
         print("architectures: ", self.architectures)
         print("Local Mirror stored in : ", self.lmirror)
+        if self.pkgLists:
+            print("Debian packages mirrored are limited by these files:")
+            for p in self.pkgLists:
+                print("  %s: %s (%d items)" %
+                    (p, self.pkgLists[p], len(self.debList[p])))
         self.skeletonCheck(False)
 
     def config(cf=cfgFile):
@@ -99,6 +109,45 @@ Dictionaries:
         RepositoryMirror.architectures = setup.get('architectures', RepositoryMirror.architectures).split()
         RepositoryMirror.tdir = setup.get('tdir', RepositoryMirror.tdir)
         RepositoryMirror.lmirror = setup.get('lmirror', RepositoryMirror.lmirror)
+        pL = {}
+        for d in RepositoryMirror.distributions:
+            print("Checking for entry'", 'packages-' + d, "'", sep='')
+            pkglist = setup.get('packages-' + d, None)
+            print("pkglist for ", d, "is", pkglist)
+            if pkglist:
+                pL[d] = pkglist
+        if len(pL) > 0:
+            RepositoryMirror.pkgLists = pL
+
+    def parsePkgLists(self, pkgLists):
+        '''
+    Process all Package List definitions - produces a set of packages which are to be mirrored.
+    Each package list is associated with one distribution and is a dictionary of package lists
+    file names. Each Package List file is the names of all the packages that should be mirrored
+    of this distrubution. The following command will generate such a file called 'pkg-list'
+    which will have all the packages that have been installed on the current debian box:
+       awk '/^Package: / { print $2; }' /var/lib/dpkg/status > pkg-list
+        '''
+        global args
+
+        self.pkgLists = pkgLists
+        self.debList = {}
+        for k in pkgLists:
+            pf = pkgLists[k]
+            if not os.access(pf, os.R_OK):
+                print("Unable to read package file: ", pf)
+                sys.exit(1)
+            fp = open(pf, 'rt')
+            pkg_names = set()
+            for l in fp:
+                for p in l.split():
+                    pkg_names.add(p)
+            fp.close()
+            if args.verbose:
+                print("Read %d names from %s package list %s" %
+                    (len(pkg_names), k, pf))
+            self.debList[k] = pkg_names
+
 
     def getPackagePath(self, dist=distributions[0], comp=components[0],
             arch=architectures[0]):
@@ -347,6 +396,10 @@ Holds summary of a Release file including:
         self.info = {}
         self.pkgs = {}
         self.changed = False
+        if name in rep.debList:
+            self.deblist = rep.debList[name]
+        else:
+            self.deblist = None
 
         if not os.access(rfile, os.R_OK):
             return
@@ -370,9 +423,10 @@ Holds summary of a Release file including:
             if len(w) > 2:
                 f = w[2]
                 (comp, arch, ctype) = parsePfile(f)
-                if ctype == 'bzip' and comp in RepositoryMirror.components \
+                if ctype == 'bzip' \
+                    and comp in RepositoryMirror.components \
                     and arch in RepositoryMirror.architectures :
-                    self.pkgs[f] = PkgFile(rep, f, md5sum=w[0], size=w[1])
+                    self.pkgs[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
                 continue
             print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
         fp.close()
@@ -428,11 +482,13 @@ class PkgFile():
        pkgs[deb package name] = PkgEntry
        pkgfiles[deb package file name ] = PkgEntry
        total_missing = size in bytes of all missing / out of date packages
+       relfile = Release we belong to
     '''
-    def __init__(self, rep, name, md5sum=0, size=0):
+    def __init__(self, rep, name, md5sum=0, size=0, relfile=None):
         ''' Create Package File info '''
         self.repMirror = rep
         self.name = name
+        self.relfile = relfile
         if name.endswith('.bz2'):
             ctype = 'bz2'
         elif rfile.endswith('.gz'):
@@ -446,7 +502,9 @@ class PkgFile():
         self.comp, self.arch = p[0], p[1]
 
     def rdPkgFile(self, rfile):
-        ''' Read in from a Package file, update state of .deb files
+        '''
+        Read in from a Package file, update state of .deb files
+          - Restricted by any pkglist associated with that release
         '''
 
         self.total_missing = 0
@@ -460,11 +518,14 @@ class PkgFile():
         # read in Package entry seperated by blank lines
         self.pkgs = {}
         self.pkgfiles = {}
+        deblist = self.relfile.deblist if self.relfile else None
         while True:
             p = PkgEntry.getPkgEntry(fp)
             if p == None:
                 break;
             fn = p.fname
+            if deblist and fn not in deblist:
+                continue
             f = self.repMirror.getDebPath(fn)
             u = self.repMirror.getDebURL(fn)
             s = p.size
