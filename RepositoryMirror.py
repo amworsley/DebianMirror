@@ -309,6 +309,8 @@ of distribution and releaseCacheFile lists.
                 if pkg.total_missing > 0:
                     self.updated = True
                     missing += pkg.total_missing
+            if args.verbose:
+                print('Package %s - total %d' % (r.name, len(r.pkgs)))
 
         if args.verbose:
             print('%d changed package files - %d missing for downloading' % (cnt, missing))
@@ -420,7 +422,7 @@ Holds summary of a Release file including:
             w = l.split()
             if w[0] in { 'MD5Sum:', 'SHA1:', 'SHA256:' }:
                 break
-            if len(w) > 2:
+            if len(w) > 2 and 'Packages' in w[2]:
                 f = w[2]
                 (comp, arch, ctype) = parsePfile(f)
                 if ctype == 'bzip' \
@@ -428,7 +430,8 @@ Holds summary of a Release file including:
                     and arch in RepositoryMirror.architectures :
                     self.pkgs[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
                 continue
-            print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
+            if args.verbose:
+                print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
         fp.close()
 
 class PkgEntry():
@@ -473,7 +476,13 @@ class PkgEntry():
             w = l.decode().split(':', 1)
             if k: # save any current field
                 p[k] = v
-            k, v = w[0], w[1].strip()
+            if len(w) >= 2:
+                k, v = w[0], w[1].strip()
+            else:
+                print("Error rdPkgDetails - parse error line:", l, "w = ", w)
+                for i in [ 1, 2, 3 ]:
+                    print(fp)
+                sys.exit(2)
 
         return p
 
@@ -500,6 +509,7 @@ class PkgFile():
         self.size = size
         p = parsePfile(name)
         self.comp, self.arch = p[0], p[1]
+        self.ignored = 0
 
     def rdPkgFile(self, rfile):
         '''
@@ -523,9 +533,14 @@ class PkgFile():
             p = PkgEntry.getPkgEntry(fp)
             if p == None:
                 break;
-            fn = p.fname
-            if deblist and fn not in deblist:
+            if deblist and p.name not in deblist:
+                self.ignored += 1
+                #if self.ignored < 3:
+                    #print("p is ", p.fname, p.md5sum)
+                    #print("Ignoring ", p.name)
                 continue
+            #print("Want ", p.name)
+            fn = p.fname
             f = self.repMirror.getDebPath(fn)
             u = self.repMirror.getDebURL(fn)
             s = p.size
@@ -887,7 +902,9 @@ if __name__ == '__main__':
             nfails += 1
 
     if args.fetch:
+        if args.verbose: print("%d releases" % len(repM.relfiles))
         for r in repM.relfiles.values():
+            if args.verbose: print("%d packages:" % len(r.pkgs))
             for p in r.pkgs.values():
                 for d in p.pkgs.values():
                     if d.missing:
