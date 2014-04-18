@@ -70,6 +70,7 @@ Dictionaries:
         self.relfiles = {}
         self.pkgfiles = {}
         self.debfiles = {}
+        self.debList = {} # package file -> list of deb entries
 
     cfgFile="RM.cfg"
     repository = 'http://web/security.debian.org'
@@ -131,7 +132,6 @@ Dictionaries:
         global args
 
         self.pkgLists = pkgLists
-        self.debList = {}
         for k in pkgLists:
             pf = pkgLists[k]
             if not os.access(pf, os.R_OK):
@@ -332,7 +332,11 @@ Returns:
 
         rURL = self.getReleaseURL(dist=dist)
         rfile = CacheFile(rURL, self.getReleasePath(dist=dist))
-        if not rfile.fetch():
+        try:
+            if not rfile.fetch():
+                print("Unable to Release " + dist + " defintion file at " + rURL)
+                return None
+        except:
             self.cleanUp(1, "Unable to fetch %s - aborting..." % rURL)
         if rfile.match():
             oRelFile = RelFile(self, dist, rfile.ofile)
@@ -618,6 +622,9 @@ class CacheFile:
             uf.close()
             of.close()
             return True
+
+        except urllib.error.HTTPError:
+            return False
 
         except OSError:
             return False
