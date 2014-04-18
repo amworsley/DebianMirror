@@ -886,7 +886,7 @@ if __name__ == '__main__':
 
     if args.info:
         repM.dump_info()
-        sys.exit(0)
+        repM.cleanUp()
 
     nfails = 0
     if repM.skeletonCheck(args.create) != True:
@@ -896,7 +896,7 @@ if __name__ == '__main__':
     if repM.update() == False:
         print("%s: Repository Mirror at %s is up to date"
             % (repM.repository, repM.lmirror))
-        sys.exit(0)
+        repM.cleanUp()
 
     print("%s: %d release%s changed:" %
         (repM.repository, len(repM.changed_dists), ("" if len(repM.changed_dists) == 1 else "s")))
@@ -919,4 +919,4 @@ if __name__ == '__main__':
                         d.cfile.fetch()
                         d.cfile.update()
 
-    sys.exit(nfails)
+    repM.cleanUp(nfails)
