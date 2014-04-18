@@ -64,3 +64,26 @@ ln -s ../RM/security.debian.org ../debs/security.debian.org
 
 Notes:
       A local respository directory can be given with the non-standard URL syntax "file:abc" -> local directory "abc"
+
+   Configuration file
+   -------------------------
+
+  To use different repository or parameters other than the default security updates you define a configuration file as per a ConfigParser class.
+  The -c option tells the command read the parameters from the given configuration file:
+
+    ./RepositoryMirror.py -c azza.cfg
+  
+  where you create azza.cfg via:
+
+cat >azza.cfg <<EOF
+# to end of line is a comment
+# Place all settings in 'setup' section header :
+[setup]
+# Rest of lines are <Parameter> ':' <Value>
+# e.g. define URL for the repository to mirror:
+repository: http://azza.tqc.com.au/movies3/work/debs/security.debian.org
+# Restrict to given space seperated list of releases (distributions) to mirror:
+distributions: wheezy/updates
+# Name local directory to place mirror into:
+lmirror: azza-updates
+EOF

@@ -12,3 +12,11 @@ INSTALL_PATH := $(PREFIX)/bin
 install: RepositoryMirror.py update-rm.sh
 	cp $? $(INSTALL_PATH)
 
+# Check fast local mirror
+azzatest: azza.cfg
+	rm -rf azza-updates
+	./RepositoryMirror.py -c azza.cfg -info
+	./RepositoryMirror.py -c azza.cfg -create
+	./RepositoryMirror.py -c azza.cfg
+	./RepositoryMirror.py -c azza.cfg -fetch
+	./RepositoryMirror.py -c azza.cfg
