@@ -60,6 +60,7 @@ Dictionaries:
         self.comps = comps if comps else RepositoryMirror.components
         self.archs = archs if archs else RepositoryMirror.architectures
         self.lmirror = lmirror if lmirror else RepositoryMirror.lmirror
+        self.debList = {} # package file -> list of deb entries
         if RepositoryMirror.pkgLists:
             self.parsePkgLists(RepositoryMirror.pkgLists)
         else:
@@ -70,7 +71,6 @@ Dictionaries:
         self.relfiles = {}
         self.pkgfiles = {}
         self.debfiles = {}
-        self.debList = {} # package file -> list of deb entries
 
     cfgFile="RM.cfg"
     repository = 'http://web/security.debian.org'
@@ -378,7 +378,10 @@ Returns:
 
         if msg:
             print(msg)
-        self.tempDir.cleanup()
+        try:
+            self.tempDir.cleanup()
+        except:
+            print("Nothing to remove")
         sys.exit(ret)
 
 
