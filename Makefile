@@ -20,3 +20,11 @@ azzatest: azza.cfg
 	./RepositoryMirror.py -c azza.cfg
 	./RepositoryMirror.py -c azza.cfg -fetch
 	./RepositoryMirror.py -c azza.cfg
+
+smalltest: azza-50.cfg
+	rm -rf azza-updates-50
+	./RepositoryMirror.py -c azza-50.cfg -info
+	./RepositoryMirror.py -c azza-50.cfg -create
+	./RepositoryMirror.py -c azza-50.cfg
+	./RepositoryMirror.py -c azza-50.cfg -fetch
+	./RepositoryMirror.py -c azza-50.cfg
