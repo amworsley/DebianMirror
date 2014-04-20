@@ -279,11 +279,12 @@ Dictionaries:
 
         return True
 
-    def update(self):
+    def checkState(self, update=True):
         '''
-Update Mirror's status by reading repository's state
+Update Mirror's State by reading repository's state
 Loops through the distributions specified and computes change_dists list
-of distribution and releaseCacheFile lists.
+of distribution and releaseCacheFile lists. If update is true will refresh 
+the Mirror's release details from the source repository
         '''
         global args
         cnt = 0 # no. of changed files
@@ -896,7 +897,7 @@ if __name__ == '__main__':
         print("Unable to set up repository mirror for %s at %s"
             % (repM.repository, repM.lmirror))
         sys.exit(1)
-    if repM.update() == False:
+    if repM.checkState() == False:
         print("%s: Repository Mirror at %s is up to date"
             % (repM.repository, repM.lmirror))
         repM.cleanUp()
