@@ -290,10 +290,12 @@ the Mirror's release details from the source repository
         cnt = 0 # no. of changed files
         missing = 0 # missing bytes of files
 
+        if update == False:
+            print('Not refreshing info from original repository')
         for d in self.dists:
             if args.verbose:
                 print('Checking Release %s' % d)
-            r = self.checkRelease(d)
+            r = self.checkRelease(d, update)
             if args.verbose:
                 print('%s - Release file %schanged' % (d, "" if r else "un"))
             if r != None:
@@ -317,13 +319,13 @@ the Mirror's release details from the source repository
             print('%d changed package files - %d missing for downloading' % (cnt, missing))
         return self.updated
 
-    def checkRelease(self, dist):
+    def checkRelease(self, dist, update):
         ''' Read given Release file and return Release object if has changed
-
 Argument: dist - name of distribution e.g. wheezy/updates
+          update - if true, fetch latest release file from original repository
 Returns:
     None - Release file hasn't changed from the Mirror Version
-    rfile = CacheFile object of the updated Release file
+      otherwise rfile = CacheFile object of the updated Release file
         '''
 
         global args
@@ -333,6 +335,17 @@ Returns:
 
         rURL = self.getReleaseURL(dist=dist)
         rfile = CacheFile(rURL, self.getReleasePath(dist=dist))
+        cRelFile = None
+        if update:
+            cRelFile = self.checkReleaseFile(dist, rfile)
+        if cRelFile == None:
+            cRelFile = RelFile(self, dist, rfile.ofile)
+        self.relfiles[dist] = cRelFile
+        return rfile
+
+
+    def checkReleaseFile(self, dist, rfile):
+        ''' Check release file against latest version in original repository'''
         try:
             if not rfile.fetch():
                 print("Unable to Release " + dist + " defintion file at " + rURL)
@@ -341,7 +354,6 @@ Returns:
             self.cleanUp(1, "Unable to fetch %s - aborting..." % rURL)
         if rfile.match():
             oRelFile = RelFile(self, dist, rfile.ofile)
-            self.relfiles[dist] = oRelFile
             oldPkgs = frozenset(oRelFile.pkgs)
             self.com_pkgs = oldPkgs
             self.new_pkgs = self.rm_pkgs = frozenset([])
@@ -350,13 +362,12 @@ Returns:
                 for p in self.com_pkgs:
                     print("%s" % p)
                 print()
-            return None
+            return oRelFile
 
         if args.verbose:
             print("%s has changed" % dist)
         oRelFile = RelFile(self, dist, rfile.ofile)
         nRelFile = RelFile(self, dist, rfile.tfile)
-        self.relfiles[dist] = nRelFile
         newPkgs = frozenset(nRelFile.pkgs)
         oldPkgs = frozenset(oRelFile.pkgs)
         self.new_pkgs = newPkgs - oldPkgs
@@ -372,7 +383,7 @@ Returns:
         for p in newPkgs:
             print("%d: %s" % (i, p))
             i += 1
-        return rfile
+        return nRelFile
 
     def cleanUp(self, ret=0, msg=None):
         '''Remove all temporary files/directories'''
@@ -875,6 +886,8 @@ if __name__ == '__main__':
         help='Create Repository if missing')
     parser.add_argument('-fetch', dest='fetch', action='store_true',
         help='fetch missing packages')
+    parser.add_argument('-norefresh', dest='update', action='store_false',
+        help='do not refresh status from original repository')
 
     args = parser.parse_args()
 
@@ -897,20 +910,21 @@ if __name__ == '__main__':
         print("Unable to set up repository mirror for %s at %s"
             % (repM.repository, repM.lmirror))
         sys.exit(1)
-    if repM.checkState() == False:
+    if repM.checkState(args.update) == False:
         print("%s: Repository Mirror at %s is up to date"
             % (repM.repository, repM.lmirror))
         repM.cleanUp()
 
     print("%s: %d release%s changed:" %
         (repM.repository, len(repM.changed_dists), ("" if len(repM.changed_dists) == 1 else "s")))
-    for r in repM.changed_dists:
-        print('   ' + r[0] + ': ', end='')
-        if r[1].update():
-            print('updated ok')
-        else:
-            print('update failed!')
-            nfails += 1
+    if args.update:
+        for r in repM.changed_dists:
+            print('   ' + r[0] + ': ', end='')
+            if r[1].update():
+                print('updated ok')
+            else:
+                print('update failed!')
+                nfails += 1
 
     if args.fetch:
         if args.verbose: print("%d releases" % len(repM.relfiles))

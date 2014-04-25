@@ -26,5 +26,6 @@ smalltest: azza-50.cfg
 	./RepositoryMirror.py -c azza-50.cfg -info
 	./RepositoryMirror.py -c azza-50.cfg -create
 	./RepositoryMirror.py -c azza-50.cfg
+	./RepositoryMirror.py -c azza-50.cfg -norefresh
 	./RepositoryMirror.py -c azza-50.cfg -fetch
 	./RepositoryMirror.py -c azza-50.cfg
