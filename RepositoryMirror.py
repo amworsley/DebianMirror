@@ -289,18 +289,25 @@ the Mirror's release details from the source repository
         global args
         cnt = 0 # no. of changed files
         missing = 0 # missing bytes of files
+        self.missing = False
 
         if update == False:
             print('Not refreshing info from original repository')
         for d in self.dists:
             if args.verbose:
                 print('Checking Release %s' % d)
-            r = self.checkRelease(d, update)
-            if args.verbose:
-                print('%s - Release file %schanged' % (d, "" if r else "un"))
-            if r != None:
-                self.changed_dists.append([d, r])
+            relfile = self.checkRelease(d, update)
+            if not relfile.present:
+                print(' Warning: %s - Release file missing' % d)
+                self.missing = True;
+            elif relfile.changed:
+                if args.verbose:
+                    print('%s - Release file changed ' % d)
+                self.changed_dists.append([d, relfile.cfile])
                 self.updated = True
+            else:
+                if args.verbose:
+                    print('%s - Release file unchanged ' % d)
 
         for r in self.relfiles.values():
             for p in r.pkgs:
@@ -320,12 +327,11 @@ the Mirror's release details from the source repository
         return self.updated
 
     def checkRelease(self, dist, update):
-        ''' Read given Release file and return Release object if has changed
+        ''' Read given Release file and return Release object
 Argument: dist - name of distribution e.g. wheezy/updates
           update - if true, fetch latest release file from original repository
 Returns:
-    None - Release file hasn't changed from the Mirror Version
-      otherwise rfile = CacheFile object of the updated Release file
+    Release file 
         '''
 
         global args
@@ -334,26 +340,29 @@ Returns:
             print("Checking Release %s ..." % dist)
 
         rURL = self.getReleaseURL(dist=dist)
-        rfile = CacheFile(rURL, self.getReleasePath(dist=dist))
+        cfile = CacheFile(rURL, self.getReleasePath(dist=dist))
         cRelFile = None
         if update:
-            cRelFile = self.checkReleaseFile(dist, rfile)
+            cRelFile = self.checkReleaseFile(dist, cfile)
         if cRelFile == None:
-            cRelFile = RelFile(self, dist, rfile.ofile)
+            cRelFile = RelFile(self, dist, cfile.ofile)
         self.relfiles[dist] = cRelFile
-        return rfile
+        cRelFile.cfile = cfile
+        return cRelFile
 
 
-    def checkReleaseFile(self, dist, rfile):
+    def checkReleaseFile(self, dist, cfile):
         ''' Check release file against latest version in original repository'''
         try:
-            if not rfile.fetch():
+            if not cfile.fetch():
                 print("Unable to Release " + dist + " defintion file at " + rURL)
                 return None
         except:
             self.cleanUp(1, "Unable to fetch %s - aborting..." % rURL)
-        if rfile.match():
-            oRelFile = RelFile(self, dist, rfile.ofile)
+            return None
+
+        if cfile.match():
+            oRelFile = RelFile(self, dist, cfile.ofile)
             oldPkgs = frozenset(oRelFile.pkgs)
             self.com_pkgs = oldPkgs
             self.new_pkgs = self.rm_pkgs = frozenset([])
@@ -366,8 +375,9 @@ Returns:
 
         if args.verbose:
             print("%s has changed" % dist)
-        oRelFile = RelFile(self, dist, rfile.ofile)
-        nRelFile = RelFile(self, dist, rfile.tfile)
+        oRelFile = RelFile(self, dist, cfile.ofile)
+        nRelFile = RelFile(self, dist, cfile.tfile)
+        nRelFile.changed = True
         newPkgs = frozenset(nRelFile.pkgs)
         oldPkgs = frozenset(oRelFile.pkgs)
         self.new_pkgs = newPkgs - oldPkgs
@@ -417,14 +427,18 @@ Holds summary of a Release file including:
         self.info = {}
         self.pkgs = {}
         self.changed = False
+        self.present = False
         if name in rep.debList:
             self.deblist = rep.debList[name]
         else:
             self.deblist = None
 
         if not os.access(rfile, os.R_OK):
+            self.present = False
             return
+
         fp = open(rfile, 'rt')
+        self.present = True
         for l in fp:
             l = l.lstrip().rstrip()
             w = l.split()
@@ -911,8 +925,12 @@ if __name__ == '__main__':
             % (repM.repository, repM.lmirror))
         sys.exit(1)
     if repM.checkState(args.update) == False:
-        print("%s: Repository Mirror at %s is up to date"
-            % (repM.repository, repM.lmirror))
+        if repM.missing:
+            print("%s: Repository Mirror at %s is incomplete"
+                % (repM.repository, repM.lmirror))
+        else:
+            print("%s: Repository Mirror at %s is up to date"
+                % (repM.repository, repM.lmirror))
         repM.cleanUp()
 
     print("%s: %d release%s changed:" %
