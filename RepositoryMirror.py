@@ -195,7 +195,7 @@ Dictionaries:
         '''
         global args
 
-        pkg = rel.pkgs[pname]
+        pkg = rel.pkgFiles[pname]
         #print('checkPackage(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
         #        % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
         path = self.getPackagePath(rel.name, pkg.comp, pkg.arch)
@@ -310,7 +310,7 @@ the Mirror's release details from the source repository
                     print('%s - Release file unchanged ' % d)
 
         for r in self.relfiles.values():
-            for p in r.pkgs:
+            for p in r.pkgFiles:
                 pkg = self.checkPackage(r, p)
                 if pkg.modified:
                     self.updated = True
@@ -320,7 +320,7 @@ the Mirror's release details from the source repository
                     self.updated = True
                     missing += pkg.total_missing
             if args.verbose:
-                print('Package %s - total %d' % (r.name, len(r.pkgs)))
+                print('Package %s - total %d' % (r.name, len(r.pkgFiles)))
 
         if args.verbose:
             print('%d changed package files - %d missing for downloading' % (cnt, missing))
@@ -363,7 +363,7 @@ Returns:
 
         if cfile.match():
             oRelFile = RelFile(self, dist, cfile.ofile)
-            oldPkgs = frozenset(oRelFile.pkgs)
+            oldPkgs = frozenset(oRelFile.pkgFiles)
             self.com_pkgs = oldPkgs
             self.new_pkgs = self.rm_pkgs = frozenset([])
             if args.verbose:
@@ -378,8 +378,8 @@ Returns:
         oRelFile = RelFile(self, dist, cfile.ofile)
         nRelFile = RelFile(self, dist, cfile.tfile)
         nRelFile.changed = True
-        newPkgs = frozenset(nRelFile.pkgs)
-        oldPkgs = frozenset(oRelFile.pkgs)
+        newPkgs = frozenset(nRelFile.pkgFiles)
+        oldPkgs = frozenset(oRelFile.pkgFiles)
         self.new_pkgs = newPkgs - oldPkgs
         if len(self.new_pkgs) > 0 and args.verbose:
             print("%d new packages:" % len(self.new_pkgs))
@@ -412,7 +412,7 @@ class RelFile():
 Holds summary of a Release file including:
    name - Release name
    info - dict of parameters from head of release file
-   pkgs - dict of PkgFile index by pkgfile names matching RepositoryMirror's parameters
+   pkgFiles - dict of PkgFile index by pkgfile names matching RepositoryMirror's parameters
     '''
 
     def __init__(self, rep, name, rfile):
@@ -425,7 +425,7 @@ Holds summary of a Release file including:
         self.repMirror = rep
         self.name = name
         self.info = {}
-        self.pkgs = {}
+        self.pkgFiles = {}
         self.changed = False
         self.present = False
         if name in rep.debList:
@@ -457,11 +457,11 @@ Holds summary of a Release file including:
                 break
             if len(w) > 2 and 'Packages' in w[2]:
                 f = w[2]
-                (comp, arch, ctype) = parsePfile(f)
+                (comp, arch, ctype) = PkgFile.parsePfile(f)
                 if ctype == 'bzip' \
                     and comp in RepositoryMirror.components \
                     and arch in RepositoryMirror.architectures :
-                    self.pkgs[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    self.pkgFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
                 continue
             if args.verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
@@ -540,7 +540,7 @@ class PkgFile():
         self.ctype = ctype
         self.md5sum = md5sum
         self.size = size
-        p = parsePfile(name)
+        p = PkgFile.parsePfile(name)
         self.comp, self.arch = p[0], p[1]
         self.ignored = 0
 
@@ -595,6 +595,26 @@ class PkgFile():
                 print("Package %s download size=%dMb " % (self.name, self.total_missing/(1024*1024)))
             else:
                 print("Package %s download size=%dGb " % (self.name, self.total_missing/(1024*1024*1024)))
+
+    def parsePfile(s):
+        ''' Parse package line from Release file into tuple (component, arch, ctype)'''
+        l = s.split('/')
+        if l[1].startswith('binary-'):
+            arch = l[1][len('binary-'):]
+        elif l[1] == 'source':
+            arch = l[1]
+        else: arch = 'other'
+
+        e = l[-1]
+        if e == 'Packages':
+            ctype = 'plain'
+        elif e.endswith('Packages.gz'):
+            ctype = 'gzip'
+        elif e.endswith('Packages.bz2'):
+            ctype = 'bzip'
+        else: ctype = 'unknown'
+
+        return (l[0], arch, ctype)
 
 class CacheFile:
     ''' Cache a file locally from a URL allowing comparisons and updates of the local version '''
@@ -761,26 +781,6 @@ class CacheFile:
             print('mv %s %s failed: %s' % (tfile, ofile, e.strerror))
             return False
 
-def parsePfile(s):
-    ''' Parse package line from Release file into tuple (component, arch, ctype)'''
-    l = s.split('/')
-    if l[1].startswith('binary-'):
-        arch = l[1][len('binary-'):]
-    elif l[1] == 'source':
-        arch = l[1]
-    else: arch = 'other'
-
-    e = l[-1]
-    if e == 'Packages':
-        ctype = 'plain'
-    elif e.endswith('Packages.gz'):
-        ctype = 'gzip'
-    elif e.endswith('Packages.bz2'):
-        ctype = 'bzip'
-    else: ctype = 'unknown'
-
-    return (l[0], arch, ctype)
-
 class TestRepositoryMirror(unittest.TestCase):
     v = False
 
@@ -870,7 +870,7 @@ class TestRepositoryMirror(unittest.TestCase):
             for k in rf.info.keys():
                 print('%s - %s' % (k, rf.info[k]))
 
-        print("Reading Release file %s : %d Package files" % (r, len(rf.pkgs)))
+        print("Reading Release file %s : %d Package files" % (r, len(rf.pkgFiles)))
 
     def test_PkgFile(self):
         if TestRepositoryMirror.v: print("Package File Tests")
@@ -947,8 +947,8 @@ if __name__ == '__main__':
     if args.fetch:
         if args.verbose: print("%d releases" % len(repM.relfiles))
         for r in repM.relfiles.values():
-            if args.verbose: print("%d packages:" % len(r.pkgs))
-            for p in r.pkgs.values():
+            if args.verbose: print("%d package files:" % len(r.pkgFiles))
+            for p in r.pkgFiles.values():
                 for d in p.pkgs.values():
                     if d.missing:
                         print("Fetching %s - size %s" % (d.name, d.size))
