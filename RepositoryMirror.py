@@ -189,9 +189,9 @@ Dictionaries:
         url = self.repo + '/' + filename
         return url
 
-    def checkPackage(self, rel, pname):
+    def checkPackage(self, rel, pname, update=True):
         '''
-        Check the local mirror of Package pname and it's debian packages
+        Check the Package file pname on the local mirror and it's debian packages
         '''
         global args
 
@@ -202,19 +202,30 @@ Dictionaries:
         url = self.getPackageURL(rel.name, pkg.comp, pkg.arch)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
         if not cfile.check(size=pkg.size, md5sum=pkg.md5sum):
-            if args.verbose:
-                print("checkPackage(path=%s url=%s) - missing" % (path, url))
-            cfile.fetch()
-            pfile = cfile.tfile
-            pkg.modified = True
+            if update:
+                try:
+                    cfile.fetch()
+                    pfile = cfile.tfile
+                    pkg.modified = True
+                    pkg.missing = False
+                except:
+                    pkg.missing = True
+            else:
+                pkg.missing = True
         else:
             if args.verbose:
                 print("checkPackage(path=%s url=%s) - ok" % (path, url))
             pfile = cfile.ofile
             pkg.modified = False
+            pkg.missing = False
 
+        if pkg.missing:
+            print(' Warning: %s - package file %s missing' % (rel.name, pname))
+            if args.verbose:
+                print("package file (path=%s url=%s) - missing" % (path, url))
+            return pkg
         if args.verbose:
-            print("checkPackage() - processing %s" % pfile)
+            print("processing Package file %s" % pfile)
         pkg.rdPkgFile(pfile)
         return pkg
 
@@ -311,8 +322,12 @@ the Mirror's release details from the source repository
 
         for r in self.relfiles.values():
             for p in r.pkgFiles:
-                pkg = self.checkPackage(r, p)
-                if pkg.modified:
+                pkg = self.checkPackage(r, p, update)
+                if pkg.missing:
+                    self.updated = True
+                    self.missing = True
+                    continue
+                if update and pkg.modified:
                     self.updated = True
                     pkg.cfile.update()
                     cnt += 1

@@ -42,11 +42,21 @@ echo
 echo "Testing Missing Package file"
 rm azza-updates-50/dists/wheezy/updates/contrib/binary-amd64/Packages.bz2
 
-check_norefresh 'Warning: wheezy/updates - package file missing' 
+check_norefresh 'Warning: wheezy/updates - package file contrib/binary-amd64/Packages.bz2 missing' 
+
 if [ -e azza-updates-50/dists/wheezy/updates/contrib/binary-amd64/Packages.bz2 ]; then 
     echo "Package file was refreshed - -norefresh option not working..."
+    exit 1
 else
     echo "Package file is not updated : -norefresh option working..."
+fi
+
+./RepositoryMirror.py -c azza-50.cfg
+if [ -e azza-updates-50/dists/wheezy/updates/contrib/binary-amd64/Packages.bz2 ]; then 
+    echo "Package file was refreshed - correctly"
+else
+    echo "Package file was not updated by ./RepositoryMirror.py -c azza-50.cfg"
     exit 1
 fi
 
+check_uptodate
