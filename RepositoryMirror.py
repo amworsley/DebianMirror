@@ -71,6 +71,7 @@ Dictionaries:
         self.relfiles = {}
         self.pkgfiles = {}
         self.debfiles = {}
+        self.cnt = 0
 
     cfgFile="RM.cfg"
     repository = 'http://web/security.debian.org'
@@ -112,7 +113,7 @@ Dictionaries:
         RepositoryMirror.lmirror = setup.get('lmirror', RepositoryMirror.lmirror)
         pL = {}
         for d in RepositoryMirror.distributions:
-            print("Checking for entry'", 'packages-' + d, "'", sep='')
+            print("Checking distribution '", d, " : 'packages-'" + d, "'", sep='')
             pkglist = setup.get('packages-' + d, None)
             print("pkglist for ", d, "is", pkglist)
             if pkglist:
@@ -326,19 +327,25 @@ the Mirror's release details from the source repository
                 if pkg.missing:
                     self.updated = True
                     self.missing = True
+                    cnt += 1
                     continue
                 if update and pkg.modified:
                     self.updated = True
                     pkg.cfile.update()
-                    cnt += 1
                 if pkg.total_missing > 0:
                     self.updated = True
                     missing += pkg.total_missing
+                cnt += pkg.cnt
+                if args.verbose:
+                    print('Package %s - cnt %d missing %d' % (pkg.name, pkg.cnt, pkg.total_missing))
             if args.verbose:
-                print('Package %s - total %d' % (r.name, len(r.pkgFiles)))
+                print('Release %s - total %d' % (r.name, len(r.pkgFiles)))
+            r.cnt = cnt
+            self.cnt += cnt
+            cnt = 0
 
         if args.verbose:
-            print('%d changed package files - %d missing for downloading' % (cnt, missing))
+            print('%d changed files - %d bytes missing for downloading' % (self.cnt, missing))
         return self.updated
 
     def checkRelease(self, dist, update):
@@ -565,6 +572,7 @@ class PkgFile():
           - Restricted by any pkglist associated with that release
         '''
 
+        global args
         self.total_missing = 0
         if self.ctype.endswith('bz2'):
             fp = bz2.BZ2File(rfile, 'r')
@@ -576,6 +584,7 @@ class PkgFile():
         # read in Package entry seperated by blank lines
         self.pkgs = {}
         self.pkgfiles = {}
+        self.cnt = 0
         deblist = self.relfile.deblist if self.relfile else None
         while True:
             p = PkgEntry.getPkgEntry(fp)
@@ -591,25 +600,33 @@ class PkgFile():
             fn = p.fname
             f = self.repMirror.getDebPath(fn)
             u = self.repMirror.getDebURL(fn)
-            s = p.size
+            s = int(p.size)
             cfile = CacheFile(u, ofile=f)
             if not cfile.check(size=s, md5sum=p.md5sum):
                 p.missing = True
                 p.cfile = cfile
-                self.total_missing += int(s)
+                self.total_missing += s
+                self.cnt += 1
+                if args.verbose or self.cnt < 5:
+                    print(' Missing %s  (size %d, md5sum=%s)' % (fn, s, p.md5sum))
             else:
                 p.missing = False
             self.pkgs[p.name] = p
             self.pkgfiles[p.fname] = p
 
         fp.close()
+        if not args.verbose:
+            return
         if self.total_missing > 0:
             if  self.total_missing < 1024*1024:
-                print("Package %s download size=%d" % (self.name, self.total_missing))
+                sz_str = "%d" % self.total_missing
             if  self.total_missing < 1024*1024*1024:
-                print("Package %s download size=%dMb " % (self.name, self.total_missing/(1024*1024)))
+                sz_str = "%dMb" % (self.total_missing/(1024*1024))
             else:
-                print("Package %s download size=%dGb " % (self.name, self.total_missing/(1024*1024*1024)))
+                sz_str = "%dGb" % (self.total_missing/(1024*1024*1024))
+            print("Package %s missing %d debs %s" % (self.name, self.cnt, sz_str))
+        else:
+            print("Package %s up to date - no missing debs" % (self.name))
 
     def parsePfile(s):
         ''' Parse package line from Release file into tuple (component, arch, ctype)'''
@@ -943,13 +960,19 @@ if __name__ == '__main__':
         if repM.missing:
             print("%s: Repository Mirror at %s is incomplete"
                 % (repM.repository, repM.lmirror))
+            repM.cleanUp(1)
         else:
             print("%s: Repository Mirror at %s is up to date"
                 % (repM.repository, repM.lmirror))
-        repM.cleanUp()
+            repM.cleanUp(0)
 
-    print("%s: %d release%s changed:" %
-        (repM.repository, len(repM.changed_dists), ("" if len(repM.changed_dists) == 1 else "s")))
+    repM.cnt += len(repM.changed_dists)
+    if repM.cnt > 0:
+        print("%s Repository %d change%s" %
+            (repM.repository, repM.cnt, ("" if repM.cnt == 1 else "s")))
+    else:
+        print("%s Repository unchanged" % repM.repository)
+
     if args.update:
         for r in repM.changed_dists:
             print('   ' + r[0] + ': ', end='')
@@ -967,7 +990,13 @@ if __name__ == '__main__':
                 for d in p.pkgs.values():
                     if d.missing:
                         print("Fetching %s - size %s" % (d.name, d.size))
-                        d.cfile.fetch()
-                        d.cfile.update()
+                        try:
+                            d.cfile.fetch()
+                            d.cfile.update()
+                        except OSError:
+                            print("Failed to fetch %s" % d.name)
+                            nfails += 1
 
-    repM.cleanUp(nfails)
+    if nfails == 0:
+        repM.cleanUp(0)
+    repM.cleanUp(1)

@@ -1,15 +1,19 @@
 PREFIX=/usr/local/
+
+.PHONY: help
+help:
+	@echo "targets:"
+	@echo "    tests fetch from local repository see config files for details"
+	@echo "    smalltest - 1-2 minute test 4-5 file  fetches : azza-50.cfg"
+	@echo "    azzatest - long 5 minute test full local repository fetch : azza.cfg"
+	@echo "    install - copy $(IFILES) into $(INSTALL_PATH)"
+
 lint: RepositoryMirror.py
 	python3 -m py_compile $?
 
-test:
-	./RepositoryMirror.py -v
-
-unittest:
-	./TestRepositoryMirror.py -v
-
 INSTALL_PATH := $(PREFIX)/bin
-install: RepositoryMirror.py update-rm.sh
+IFILES := RepositoryMirror.py update-rm.sh
+install: $(IFILES)
 	cp $? $(INSTALL_PATH)
 
 # Check fast local mirror
@@ -22,11 +26,26 @@ azzatest: azza.cfg
 	./RepositoryMirror.py -c azza.cfg
 
 smalltest: azza-50.cfg
+	echo "Testing -info"
 	rm -rf azza-updates-50
 	./RepositoryMirror.py -c azza-50.cfg -info
+	echo
+	echo " *** Testing -create *** "
 	./RepositoryMirror.py -c azza-50.cfg -create
+	echo
+	echo " *** Testing default update *** "
 	./RepositoryMirror.py -c azza-50.cfg
+	echo
+	echo " *** Testing -norefresh *** "
 	./RepositoryMirror.py -c azza-50.cfg -norefresh
+	echo
+	echo " *** Testing -fetch *** "
 	./RepositoryMirror.py -c azza-50.cfg -fetch
-	./RepositoryMirror.py -c azza-50.cfg
+	echo
+	echo " *** Testing azza-50-test.sh script tests *** "
 	./azza-50-test.sh
+
+# Need to move some unit tests into here
+unittest:
+	./TestRepositoryMirror.py -v
+
