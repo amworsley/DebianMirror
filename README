@@ -58,6 +58,9 @@ ln -s ../RM/security.debian.org ../debs/security.debian.org
      * I had to fix the permissions to allow apache to access this via: chmod -R a+r security.debian.org
      * The apt-get update command reported the files as being untrusted perhaps because the signature/dates or
      something were not matching.
+     * Make sure all the files are readable by apache - I had permission problems on the repository - the only way is to
+     browse there with a web server e.g. http://<machine>/debs/security.debian.org/dists/wheezy/dists/Release
+	 - The only sign is apt-get update says 'Ign' on these lines which means ignored
 
    * This is first cut untested except on security updates - be-aware hopefully it is useful.
    * Patches/fixes welcome.

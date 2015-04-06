@@ -22,7 +22,8 @@ class RepositoryMirror:
     ''' Debian Repository Mirroror - check state and optionally update 
 Check a debian repository at a given URL. Repository consists of directory structure at repo:
 dists directory - which contains a directory for each distribution e.g. distribution wheezy/updates would
-  have a Release file at $repo/dists/wheezy/updates/Release describing the components of that distribution.
+  have a Release file at $repo/dists/wheezy/updates/InRelease describing the components of that distribution
+  wrapped with a Hash and Signature There is a plain Release file with a detacted signature in Release.gpg.
 
 This might list a Package file contrib/binary-all/Packages.bz2 which would be at
     $repo/dists/wheezy/updates/contrib/binary-all/Packages.bz2
@@ -162,7 +163,7 @@ Dictionaries:
     def getReleasePath(self, dist=distributions[0]):
         ''' Return a Release file path for the given distribution'''
 
-        p = os.path.join(self.lmirror, 'dists', dist, 'Release')
+        p = os.path.join(self.lmirror, 'dists', dist, 'InRelease')
         return p
 
     def getDebPath(self, filename):
@@ -181,7 +182,7 @@ Dictionaries:
     def getReleaseURL(self, dist=distributions[0]):
         ''' Return a Release file URL for the given distribution'''
 
-        url = self.repo + '/dists/' + dist + '/Release'
+        url = self.repo + '/dists/' + dist + '/InRelease'
         return url
 
     def getDebURL(self, filename):
@@ -377,7 +378,7 @@ Returns:
         ''' Check release file against latest version in original repository'''
         try:
             if not cfile.fetch():
-                print("Unable to Release " + dist + " defintion file at " + rURL)
+                print("Unable to fetch Release " + dist + " defintion file at " + cfile.url)
                 return None
         except:
             self.cleanUp(1, "Unable to fetch %s - aborting..." % rURL)
@@ -460,8 +461,20 @@ Holds summary of a Release file including:
             return
 
         fp = open(rfile, 'rt')
+        l = fp.readline()
+        if l.startswith('-----BEGIN PGP SIGNED MESSAGE-----'):
+            l = fp.readline()
+        else:
+            print("Missing PGP Signed message header")
+        if l.startswith('Hash:'):
+            fp.readline() # skip blank line
+        else:
+            print("Signature Hash line")
+
         self.present = True
         for l in fp:
+            if l.startswith('-----BEGIN PGP SIGNATURE-----'):
+                break
             l = l.lstrip().rstrip()
             w = l.split()
             #print('%s - w=%s' % (repr(l), repr(w)))
