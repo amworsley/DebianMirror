@@ -151,13 +151,13 @@ Dictionaries:
             self.debList[k] = pkg_names
 
 
-    def getPackagePath(self, dist=distributions[0], comp=components[0],
-            arch=architectures[0]):
+    def getPackagePath(self, dist, pkg):
         ''' Return a Package path for the given distribution/component/architecture'''
 
         #print("getPackagePath(%s, %s, %s, %s, %s, %s)" % (self.lmirror, 'dists', dist, comp, 'binary-'
         #    + arch,  'Packages.bz2'))
-        p = os.path.join(self.lmirror, 'dists', dist, comp, 'binary-' + arch,  'Packages.bz2')
+        #p = os.path.join(self.lmirror, 'dists', dist, comp, 'binary-' + arch,  'Packages.bz2')
+        p = os.path.join(self.lmirror, 'dists', dist, pkg.name)
         return p
 
     def getReleasePath(self, dist=distributions[0]):
@@ -172,11 +172,11 @@ Dictionaries:
         p = os.path.join(self.lmirror, filename)
         return p
 
-    def getPackageURL(self, dist=distributions[0], comp=components[0],
-            arch=architectures[0]):
+    def getPackageURL(self, dist, pkg):
         ''' Return a Package file URL for the given distribution/component/architecture'''
 
-        url = self.repo + '/dists/' + dist + '/' + comp + '/binary-' + arch + '/Packages.bz2'
+        #url = self.repo + '/dists/' + dist + '/' + comp + '/binary-' + arch + '/Packages.bz2'
+        url = self.repo + '/dists/' + dist + '/' + pkg.name
         return url
 
     def getReleaseURL(self, dist=distributions[0]):
@@ -198,10 +198,11 @@ Dictionaries:
         global args
 
         pkg = rel.pkgFiles[pname]
-        #print('checkPackage(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
-        #        % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
-        path = self.getPackagePath(rel.name, pkg.comp, pkg.arch)
-        url = self.getPackageURL(rel.name, pkg.comp, pkg.arch)
+        if args.verbose:
+            print('checkPackage(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
+                % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
+        path = self.getPackagePath(rel.name, pkg)
+        url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
         if not cfile.check(size=pkg.size, md5sum=pkg.md5sum):
             if update:
@@ -323,7 +324,11 @@ the Mirror's release details from the source repository
                     print('%s - Release file unchanged ' % d)
 
         for r in self.relfiles.values():
+            if args.verbose:
+                print('Examining release file %s (%s)' % (r.name, r.cfile.ofile))
             for p in r.pkgFiles:
+                if args.verbose:
+                    print('Examining pkg file %s ' % (p))
                 pkg = self.checkPackage(r, p, update)
                 if pkg.missing:
                     self.updated = True
@@ -365,8 +370,7 @@ Returns:
         rURL = self.getReleaseURL(dist=dist)
         cfile = CacheFile(rURL, self.getReleasePath(dist=dist))
         cRelFile = None
-        if update:
-            cRelFile = self.checkReleaseFile(dist, cfile)
+        cRelFile = self.checkReleaseFile(dist, cfile, update)
         if cRelFile == None:
             cRelFile = RelFile(self, dist, cfile.ofile)
         self.relfiles[dist] = cRelFile
@@ -374,17 +378,17 @@ Returns:
         return cRelFile
 
 
-    def checkReleaseFile(self, dist, cfile):
+    def checkReleaseFile(self, dist, cfile, update):
         ''' Check release file against latest version in original repository'''
         try:
-            if not cfile.fetch():
+            if update and not cfile.fetch():
                 print("Unable to fetch Release " + dist + " defintion file at " + cfile.url)
                 return None
         except:
             self.cleanUp(1, "Unable to fetch %s - aborting..." % rURL)
             return None
 
-        if cfile.match():
+        if not update or cfile.match():
             oRelFile = RelFile(self, dist, cfile.ofile)
             oldPkgs = frozenset(oRelFile.pkgFiles)
             self.com_pkgs = oldPkgs
@@ -493,14 +497,18 @@ Holds summary of a Release file including:
             if len(w) > 2 and 'Packages' in w[2]:
                 f = w[2]
                 (comp, arch, ctype) = PkgFile.parsePfile(f)
-                if ctype == 'bzip' \
+                if ctype == 'gzip' \
                     and comp in RepositoryMirror.components \
                     and arch in RepositoryMirror.architectures :
                     self.pkgFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    if args.verbose:
+                        print("Grab package %s" % (f))
                 continue
-            if args.verbose:
+            if args.debug:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
         fp.close()
+        if args.verbose:
+            print("%d packages found in RelFile %s" % (len(self.pkgFiles), rfile))
 
 class PkgEntry():
     ''' Package file entry - usually detailing a .deb file '''
@@ -568,8 +576,10 @@ class PkgFile():
         self.relfile = relfile
         if name.endswith('.bz2'):
             ctype = 'bz2'
-        elif rfile.endswith('.gz'):
-            ctype = gzip
+        elif name.endswith('.gz'):
+            ctype = 'gzip'
+        elif name.endswith('.xz'):
+            ctype = 'lzma'
         else:
             ctype = 'plain'
         self.ctype = ctype
@@ -595,6 +605,8 @@ class PkgFile():
             fp = open(rfile, 'rt')
 
         # read in Package entry seperated by blank lines
+        if args.verbose:
+            print("Reading %s " % (rfile))
         self.pkgs = {}
         self.pkgfiles = {}
         self.cnt = 0
@@ -637,9 +649,9 @@ class PkgFile():
                 sz_str = "%dMb" % (self.total_missing/(1024*1024))
             else:
                 sz_str = "%dGb" % (self.total_missing/(1024*1024*1024))
-            print("Package %s missing %d debs %s" % (self.name, self.cnt, sz_str))
+            print("Package %s Total %d Ignored %d Missing %d debs %s" % (self.name, len(self.pkgs), self.ignored, self.cnt, sz_str))
         else:
-            print("Package %s up to date - no missing debs" % (self.name))
+            print("Package %s Total %d, Ignored %d: up to date - no missing debs" % (self.name, len(self.pkgs), self.ignored))
 
     def parsePfile(s):
         ''' Parse package line from Release file into tuple (component, arch, ctype)'''
@@ -937,6 +949,8 @@ if __name__ == '__main__':
         help='Do not execute commands - print them. But creates temporary files')
     parser.add_argument('-N', dest='very_dry_run', action='store_true',
         help='Do not even create temporary files')
+    parser.add_argument('-d', dest='debug', action='store_true',
+        help='debug mode')
     parser.add_argument('-v', dest='verbose', action='store_true',
         help='verbose mode')
     parser.add_argument('-run_tests', dest='run_tests', action='store_true',
@@ -1000,6 +1014,11 @@ if __name__ == '__main__':
         for r in repM.relfiles.values():
             if args.verbose: print("%d package files:" % len(r.pkgFiles))
             for p in r.pkgFiles.values():
+                if p.missing:
+                    print("Skip missing package %s" % (p.cfile.ofile))
+                    continue
+                    #p.cfile.fetch()
+                    #p.cfile.update()
                 for d in p.pkgs.values():
                     if d.missing:
                         print("Fetching %s - size %s" % (d.name, d.size))
