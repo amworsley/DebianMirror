@@ -539,6 +539,7 @@ class PkgEntry():
         p = {}
         k, v = None, ''
         for l in fp:
+            l = l.decode()
             # Check for end of Package definition
             if len(l.lstrip()) == 0:
                 if k:
@@ -549,7 +550,8 @@ class PkgEntry():
                 v += l
                 continue
 
-            w = l.decode().split(':', 1)
+            #w = l.decode().split(':', 1)
+            w = l.split(':', 1)
             if k: # save any current field
                 p[k] = v
             if len(w) >= 2:
