@@ -160,11 +160,24 @@ Dictionaries:
         p = os.path.join(self.lmirror, 'dists', dist, pkg.name)
         return p
 
-    def getReleasePath(self, dist=distributions[0]):
+    def getReleasePath(self, dist=distributions[0], file_name='Release'):
         ''' Return a Release file path for the given distribution'''
 
-        p = os.path.join(self.lmirror, 'dists', dist, 'InRelease')
+        p = os.path.join(self.lmirror, 'dists', dist, file_name)
         return p
+
+    def getReleaseURL(self, dist=distributions[0], file_name='Release'):
+        ''' Return a Release file URL for the given distribution'''
+
+        url = self.repo + '/dists/' + dist + '/' + file_name
+        return url
+
+    def mkCacheFile(self, dist, fname):
+        ''' Return a Cache file for a given distribution file '''
+
+        rURL = self.getReleaseURL(dist, fname)
+        cfile = CacheFile(rURL, self.getReleasePath(dist, fname))
+        return cfile
 
     def getDebPath(self, filename):
         ''' Return a Debian package file path for the given filename'''
@@ -177,12 +190,6 @@ Dictionaries:
 
         #url = self.repo + '/dists/' + dist + '/' + comp + '/binary-' + arch + '/Packages.bz2'
         url = self.repo + '/dists/' + dist + '/' + pkg.name
-        return url
-
-    def getReleaseURL(self, dist=distributions[0]):
-        ''' Return a Release file URL for the given distribution'''
-
-        url = self.repo + '/dists/' + dist + '/InRelease'
         return url
 
     def getDebURL(self, filename):
@@ -360,16 +367,40 @@ Argument: dist - name of distribution e.g. wheezy/updates
           update - if true, fetch latest release file from original repository
 Returns:
     Release file 
+
+    Checks for Release.gpg - detached signature - if present uses that and sets flag has_sig
+    if not present uses InRelease file, if not present fails
         '''
 
         global args
 
+
         if args.verbose:
             print("Checking Release %s ..." % dist)
 
-        rURL = self.getReleaseURL(dist=dist)
-        cfile = CacheFile(rURL, self.getReleasePath(dist=dist))
-        cRelFile = None
+        sig_cfile = self.mkCacheFile(dist, "Release.gpg")
+        has_sig = False # => signature file not present
+        # Set has_sig = True if we find a signature file
+        if update:
+            if sig_cfile.fetch():
+                has_sig = True
+        else:
+            if os.access(sig_cfile.ofile, os.R_OK):
+                has_sig = True
+
+        if has_sig:
+            rel_name = "Release"
+        else:
+            rel_name = "InRelease"
+        cfile = self.mkCacheFile(dist, rel_name)
+        #rURL = self.getReleaseURL(dist, rel_name)
+        #cfile = CacheFile(rURL, self.getReleasePath(dist, rel_name))
+        #cRelFile = None
+        if args.verbose:
+            if has_sig:
+                print(" Found detached signature using - %s ..." % rel_name)
+            else:
+                print(" No detached signature using - %s ..." % rel_name)
         cRelFile = self.checkReleaseFile(dist, cfile, update)
         if cRelFile == None:
             cRelFile = RelFile(self, dist, cfile.ofile)
@@ -612,11 +643,13 @@ class PkgFile():
         self.pkgs = {}
         self.pkgfiles = {}
         self.cnt = 0
+        self.total = 0
         deblist = self.relfile.deblist if self.relfile else None
         while True:
             p = PkgEntry.getPkgEntry(fp)
             if p == None:
                 break;
+            self.total += 1
             if deblist and p.name not in deblist:
                 self.ignored += 1
                 #if self.ignored < 3:
@@ -651,9 +684,11 @@ class PkgFile():
                 sz_str = "%dMb" % (self.total_missing/(1024*1024))
             else:
                 sz_str = "%dGb" % (self.total_missing/(1024*1024*1024))
-            print("Package %s Total %d Ignored %d Missing %d debs %s" % (self.name, len(self.pkgs), self.ignored, self.cnt, sz_str))
+            print("Package %s Total %d Ignored %d Examined %d Missing %d debs %s"
+                % (self.name, self.total, self.ignored, len(self.pkgs), self.cnt, sz_str))
         else:
-            print("Package %s Total %d, Ignored %d: up to date - no missing debs" % (self.name, len(self.pkgs), self.ignored))
+            print("Package %s Total %d, Ignored %d Examined %d: up to date - no missing debs"
+                % (self.name, self.total, self.ignored, len(self.pkgs), ))
 
     def parsePfile(s):
         ''' Parse package line from Release file into tuple (component, arch, ctype)'''
