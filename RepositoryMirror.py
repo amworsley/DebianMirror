@@ -401,26 +401,34 @@ Returns:
                 print(" Found detached signature using - %s ..." % rel_name)
             else:
                 print(" No detached signature using - %s ..." % rel_name)
-        cRelFile = self.checkReleaseFile(dist, cfile, update)
+                sig_cfile = None
+        cRelFile = self.checkReleaseFile(dist, cfile, update, sig_cfile)
         if cRelFile == None:
-            cRelFile = RelFile(self, dist, cfile.ofile)
+            cRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
         self.relfiles[dist] = cRelFile
         cRelFile.cfile = cfile
         return cRelFile
 
 
-    def checkReleaseFile(self, dist, cfile, update):
+    def checkReleaseFile(self, dist, cfile, update, sig_cfile):
         ''' Check release file against latest version in original repository'''
         try:
             if update and not cfile.fetch():
                 print("Unable to fetch Release " + dist + " defintion file at " + cfile.url)
+                return None
+            if update and sig_cfile and not sig_cfile.fetch():
+                print("Unable to fetch Release Signature file at " + cfile.url)
                 return None
         except:
             self.cleanUp(1, "Unable to fetch %s - aborting..." % rURL)
             return None
 
         if not update or cfile.match():
-            oRelFile = RelFile(self, dist, cfile.ofile)
+            oRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
+            if update and sig_cfile and not sig_cfile.match():
+                if args.verbose:
+                    print("%s updating missing signature file" % dist)
+                    sig_cfile.update()
             oldPkgs = frozenset(oRelFile.pkgFiles)
             self.com_pkgs = oldPkgs
             self.new_pkgs = self.rm_pkgs = frozenset([])
@@ -433,8 +441,8 @@ Returns:
 
         if args.verbose:
             print("%s has changed" % dist)
-        oRelFile = RelFile(self, dist, cfile.ofile)
-        nRelFile = RelFile(self, dist, cfile.tfile)
+        oRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
+        nRelFile = RelFile(self, dist, cfile.tfile, sig_cfile)
         nRelFile.changed = True
         newPkgs = frozenset(nRelFile.pkgFiles)
         oldPkgs = frozenset(oRelFile.pkgFiles)
@@ -473,7 +481,7 @@ Holds summary of a Release file including:
    pkgFiles - dict of PkgFile index by pkgfile names matching RepositoryMirror's parameters
     '''
 
-    def __init__(self, rep, name, rfile):
+    def __init__(self, rep, name, rfile, sig_cfile):
         ''' Reads in a Release from given path name
         rep - Repository Mirror
         name - Release Name
@@ -482,6 +490,7 @@ Holds summary of a Release file including:
 
         self.repMirror = rep
         self.name = name
+        self.sig = sig_cfile
         self.info = {}
         self.pkgFiles = {}
         self.changed = False
@@ -496,15 +505,16 @@ Holds summary of a Release file including:
             return
 
         fp = open(rfile, 'rt')
-        l = fp.readline()
-        if l.startswith('-----BEGIN PGP SIGNED MESSAGE-----'):
+        if sig_cfile:
             l = fp.readline()
-        else:
-            print("Missing PGP Signed message header")
-        if l.startswith('Hash:'):
-            fp.readline() # skip blank line
-        else:
-            print("Signature Hash line")
+            if l.startswith('-----BEGIN PGP SIGNED MESSAGE-----'):
+                l = fp.readline()
+            else:
+                print("Missing PGP Signed message header")
+            if l.startswith('Hash:'):
+                fp.readline() # skip blank line
+            else:
+                print("Signature Hash line")
 
         self.present = True
         for l in fp:
@@ -1049,6 +1059,8 @@ if __name__ == '__main__':
     if args.fetch:
         if args.verbose: print("%d releases" % len(repM.relfiles))
         for r in repM.relfiles.values():
+            if r.sig:
+                r.sig.fetch()
             if args.verbose: print("%d package files:" % len(r.pkgFiles))
             for p in r.pkgFiles.values():
                 if p.missing:
