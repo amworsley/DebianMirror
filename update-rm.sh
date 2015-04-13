@@ -7,3 +7,4 @@ RMPATH=/usr/local/bin
 
 cd $RM
 $RMPATH/RepositoryMirror.py -v -fetch
+$RMPATH/RepositoryMirror.py -v -fetch -c jessie.cfg
