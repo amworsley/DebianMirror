@@ -666,11 +666,12 @@ class PkgFile():
                     #print("p is ", p.fname, p.md5sum)
                     #print("Ignoring ", p.name)
                 continue
-            #print("Want ", p.name)
             fn = p.fname
             f = self.repMirror.getDebPath(fn)
             u = self.repMirror.getDebURL(fn)
             s = int(p.size)
+            if args.verbose:
+                print("rdPkgFile() Want ", p.name, " ofile=", f)
             cfile = CacheFile(u, ofile=f)
             if not cfile.check(size=s, md5sum=p.md5sum):
                 p.missing = True
@@ -765,6 +766,9 @@ class CacheFile:
 
             # Note: supports non-standard syntax for local
             # file "file:abc/def" means file at abd/def
+            if args.dry_run:
+                of.close()
+                return True
             uf = urllib.request.urlopen(self.url)
 
             while True:
