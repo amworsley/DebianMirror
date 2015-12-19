@@ -18,6 +18,10 @@ import shutil
 import hashlib
 from configparser import ConfigParser
 
+verbose = False
+dry_run = False
+very_dry_run = False
+
 class RepositoryMirror:
     ''' Debian Repository Mirroror - check state and optionally update 
 Check a debian repository at a given URL. Repository consists of directory structure at repo:
@@ -47,6 +51,7 @@ Dictionaries:
     pkgfiles - PkgFile => Package file info
     debfiles - DebFile => Debian Package info
     '''
+
     def __init__(self, repo=None, dists=None, comps=None, archs=None, lmirror=None):
         ''' Mirror subset of a debian repository - configurable subset of distributions/components/architectures
     repo - base URL of repository
@@ -250,8 +255,7 @@ Dictionaries:
             Creates tempdir - used for temporary/cache files
             Sets CacheFile.tdir - used as prefix for all CacheFile creations 
         '''
-        global args
-        v, n, nn = args.verbose, args.dry_run, args.very_dry_run
+        v, n, nn = verbose, dry_run, very_dry_run
         if nn: n = True
 
         # Check for missing skeleton directories
@@ -263,7 +267,7 @@ Dictionaries:
             for d in self.dists:
                 dpath = os.path.join(self.lmirror, 'dists', d)
                 if os.path.isdir(dpath) == False:
-                    if args.verbose:
+                    if verbose:
                         print(("Missing mirror release directory: %s\n" +
                             " - use -create to force it's creation") % dpath)
                     return False
@@ -1014,6 +1018,8 @@ if __name__ == '__main__':
         help='do not refresh status from original repository')
 
     args = parser.parse_args()
+    global verbose, dry_run, very_dry_run
+    verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
 
     if args.run_tests:
         verbose = 2 if args.verbose else 1
