@@ -82,25 +82,15 @@ Dictionaries:
     cfgFile="RM.cfg"
     repository = 'http://web/security.debian.org'
     distributions = 'wheezy/updates squeeze/updates jessie/updates'.split()
-    components = 'main contrib non-free'
-    architectures = 'amd64 all'
+    components = 'main contrib non-free'.split()
+    architectures = 'amd64 all'.split()
     tdir = 'tmp' # temporary directory prefix
     lmirror = os.path.basename(repository)
     pkgLists = None # By default will mirror *all* deb packages
 
     def dump_info(self):
         '''Print details of the configuration'''
-        print("Configuration file: ", self.cfgFile)
-        print("Repository: ", self.repository)
-        print("distributions: ", self.distributions)
-        print("components: ", self.components)
-        print("architectures: ", self.architectures)
-        print("Local Mirror stored in : ", self.lmirror)
-        if self.pkgLists:
-            print("Debian packages mirrored are limited by these files:")
-            for p in self.pkgLists:
-                print("  %s: %s (%d items)" %
-                    (p, self.pkgLists[p], len(self.debList[p])))
+        print(self)
         self.skeletonCheck(False)
 
     def config(cf=cfgFile):
@@ -475,6 +465,23 @@ Returns:
         except:
             print("Nothing to remove")
         sys.exit(ret)
+
+    def __repr__(self):
+        return "RepositoryMirror(repo={}, dists={}, comps={}, archs={}, lmirror={})".format(
+            self.repository, self.distributions, self.components, self.architectures, self.lmirror)
+    def __str__(self):
+        s = "Configuration file: " + self.cfgFile + "\n" + \
+            "Repository: " + str(self.repository) + "\n" + \
+            "distributions: " + str(self.distributions) + "\n" + \
+            "components: " + str(self.components) + "\n" + \
+            "architectures: " + str(self.architectures) + "\n" + \
+            "Local Mirror stored in : " + self.lmirror + "\n"
+        if self.pkgLists:
+            s += "Debian packages mirrored are limited by these files:\n"
+            for p in self.pkgLists:
+                s += format("  %s: %s (%d items)" %
+                    (p, self.pkgLists[p], len(self.debList[p])))
+        return s
 
 
 class RelFile():
