@@ -19,6 +19,14 @@ Local Mirror stored in : security.debian.org
 'security.debian.org/dists/wheezy/updates/Release'
 >>> a.getReleaseURL()
 'http://web/security.debian.org/dists/wheezy/updates/Release'
+>>> a = RepositoryMirror.RepositoryMirror()
+>>> relfile = RepositoryMirror.RelFile(a, "wheezy", "test/dmirror/dists/wheezy/Release", None)
+>>> relfile
+RelFile(RepositoryMirror(repo=http://web/security.debian.org, dists=['wheezy/updates', 'squeeze/updates', 'jessie/updates'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror=security.debian.org), 'wheezy', 'test/dmirror/dists/wheezy/Release', None)
+>>> print(relfile)
+RelFile()
+ name: wheezy
+ file: test/dmirror/dists/wheezy/Release
 """
 
 import RepositoryMirror

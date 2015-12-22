@@ -500,6 +500,7 @@ Holds summary of a Release file including:
         '''
 
         self.repMirror = rep
+        self.rfile = rfile
         self.name = name
         self.sig = sig_cfile
         self.info = {}
@@ -553,14 +554,20 @@ Holds summary of a Release file including:
                     and comp in RepositoryMirror.components \
                     and arch in RepositoryMirror.architectures :
                     self.pkgFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
-                    if args.verbose:
+                    if verbose:
                         print("Grab package %s" % (f))
                 continue
-            if args.debug:
+            if verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
         fp.close()
-        if args.verbose:
+        if verbose:
             print("%d packages found in RelFile %s" % (len(self.pkgFiles), rfile))
+
+    def __repr__(self):
+        return 'RelFile({!r}, {!r}, {!r}, {!r})'.format(self.repMirror, self.name, self.rfile, self.sig)
+
+    def __str__(self):
+        return 'RelFile()\n name: {!s}\n file: {!s}'.format(self.name, self.rfile)
 
 class PkgEntry():
     ''' Package file entry - usually detailing a .deb file '''
