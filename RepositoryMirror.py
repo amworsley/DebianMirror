@@ -81,7 +81,7 @@ Dictionaries:
 
     cfgFile="RM.cfg"
     repository = 'http://web/security.debian.org'
-    distributions = 'wheezy/updates squeeze/updates jessie/updates'
+    distributions = 'wheezy/updates squeeze/updates jessie/updates'.split()
     components = 'main contrib non-free'
     architectures = 'amd64 all'
     tdir = 'tmp' # temporary directory prefix
@@ -1018,7 +1018,6 @@ if __name__ == '__main__':
         help='do not refresh status from original repository')
 
     args = parser.parse_args()
-    global verbose, dry_run, very_dry_run
     verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
 
     if args.run_tests:
