@@ -560,6 +560,20 @@ Holds summary of a Release file including:
             if verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
         fp.close()
+
+        fields = self.info
+        self.suite = fields.get('Suite', None)
+        self.codename = fields.get('Codename', None)
+        self.version = fields.get('Version', None)
+        self.date = fields.get('Date', None)
+        self.desc = fields.get('Description', None)
+        self.components = fields.get('Components', None)
+        if self.components:
+            self.components = self.components.split()
+        self.archs = fields.get('Architectures', None)
+        if self.archs:
+            self.archs = self.archs.split()
+
         if verbose:
             print("%d packages found in RelFile %s" % (len(self.pkgFiles), rfile))
 
@@ -567,7 +581,9 @@ Holds summary of a Release file including:
         return 'RelFile({!r}, {!r}, {!r}, {!r})'.format(self.repMirror, self.name, self.rfile, self.sig)
 
     def __str__(self):
-        return 'RelFile()\n name: {!s}\n file: {!s}'.format(self.name, self.rfile)
+        return 'RelFile()\n name: {!s}\n file: {!s}\n'.format(self.name, self.rfile) + \
+            ' Suite: {!s}\n Codename: {!s}\n Version: {!s}\n Date: {!s}\n'.format(self.suite, self.codename, self.version, self.date) + \
+            ' Components: {!r}\n Architectures: {!r}\n Description: {!s}'.format(self.components, self.archs, self.desc)
 
 class PkgEntry():
     ''' Package file entry - usually detailing a .deb file '''

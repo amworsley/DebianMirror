@@ -27,6 +27,13 @@ RelFile(RepositoryMirror(repo=http://web/security.debian.org, dists=['wheezy/upd
 RelFile()
  name: wheezy
  file: test/dmirror/dists/wheezy/Release
+ Suite: stable
+ Codename: wheezy
+ Version: 7.0
+ Date: Sun, 10 Nov 2013 18:31:29 UTC
+ Components: ['updates/main', 'updates/contrib', 'updates/non-free']
+ Architectures: ['amd64', 'armel', 'armhf', 'i386', 'ia64', 'kfreebsd-amd64', 'kfreebsd-i386', 'mips', 'mipsel', 'powerpc', 's390', 's390x', 'sparc']
+ Description: Debian 7.0 Security Updates
 """
 
 import RepositoryMirror
