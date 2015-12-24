@@ -102,9 +102,15 @@ Dictionaries:
         cfg.read(RepositoryMirror.cfgFile)
         setup = cfg['setup']
         RepositoryMirror.repository = setup.get('repository', RepositoryMirror.repository)
-        RepositoryMirror.distributions = setup.get('distributions', RepositoryMirror.distributions).split()
-        RepositoryMirror.components = setup.get('components', RepositoryMirror.components).split()
-        RepositoryMirror.architectures = setup.get('architectures', RepositoryMirror.architectures).split()
+        d = setup.get('distributions', None)
+        if d:
+            RepositoryMirror.distributions = d.split()
+        d = setup.get('components', None)
+        if d:
+            RepositoryMirror.components = d.split()
+        d = setup.get('architectures', None)
+        if d:
+            RepositoryMirror.architectures = d.split()
         RepositoryMirror.tdir = setup.get('tdir', RepositoryMirror.tdir)
         RepositoryMirror.lmirror = setup.get('lmirror', RepositoryMirror.lmirror)
         pL = {}
@@ -390,12 +396,14 @@ Returns:
         #rURL = self.getReleaseURL(dist, rel_name)
         #cfile = CacheFile(rURL, self.getReleasePath(dist, rel_name))
         #cRelFile = None
-        if args.verbose:
-            if has_sig:
+        if has_sig:
+            if args.verbose:
                 print(" Found detached signature using - %s ..." % rel_name)
-            else:
+        else:
+            if args.verbose:
                 print(" No detached signature using - %s ..." % rel_name)
-                sig_cfile = None
+            sig_cfile = None
+        print("has_sig:", has_sig, " rel_name=", rel_name, " update=", update)
         cRelFile = self.checkReleaseFile(dist, cfile, update, sig_cfile)
         if cRelFile == None:
             cRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
@@ -815,9 +823,11 @@ class CacheFile:
             return True
 
         except urllib.error.HTTPError:
+            print("urllib.error.HTTPError:", self.url)
             return False
 
         except OSError:
+            print("OSError:", tfile)
             return False
 
     def check(self, size=None, md5sum=None):
