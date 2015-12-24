@@ -1109,7 +1109,7 @@ if __name__ == '__main__':
         if args.verbose: print("%d releases" % len(repM.relfiles))
         for r in repM.relfiles.values():
             if r.sig:
-                r.sig.fetch()
+                r.sig.update()
             if args.verbose: print("%d package files:" % len(r.pkgFiles))
             for p in r.pkgFiles.values():
                 if p.missing:
