@@ -16,11 +16,14 @@ import bz2
 import gzip
 import shutil
 import hashlib
+import stat
 from configparser import ConfigParser
 
 verbose = False
 dry_run = False
 very_dry_run = False
+
+os.umask(0o22)
 
 class RepositoryMirror:
     ''' Debian Repository Mirroror - check state and optionally update 
@@ -911,6 +914,7 @@ class CacheFile:
                 print('mv %s %s' % (tfile, ofile))
             else:
                 os.rename(tfile, ofile)
+                os.chmod(ofile, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH)
             return True
 
         except OSError as e:
@@ -923,6 +927,7 @@ class CacheFile:
                     else:
                         os.makedirs(dname)
                         os.rename(tfile, ofile)
+                        os.chmod(ofile, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH)
                         if os.access(ofile, os.R_OK):
                             print("Created %s" % ofile)
                             return True
