@@ -1096,6 +1096,9 @@ if __name__ == '__main__':
             % (repM.repository, repM.lmirror))
         sys.exit(1)
     if repM.checkState(args.update) == False:
+        if args.verbose:
+            for r in repM.relfiles.values():
+                print("Release %s" % r)
         if repM.missing:
             print("%s: Repository Mirror at %s is incomplete"
                 % (repM.repository, repM.lmirror))
@@ -1114,7 +1117,10 @@ if __name__ == '__main__':
 
     if args.update:
         for r in repM.changed_dists:
-            print('   ' + r[0] + ': ', end='')
+            if args.verbose:
+                print("Updating Release %s" % r)
+            else:
+                print('   ' + r[0] + ': ', end='')
             if r[1].update():
                 print('updated ok')
             else:
@@ -1126,7 +1132,9 @@ if __name__ == '__main__':
         for r in repM.relfiles.values():
             if r.sig:
                 r.sig.update()
-            if args.verbose: print("%d package files:" % len(r.pkgFiles))
+            print("Fetching Release %s" % r)
+            if args.verbose:
+                print("%d package files:" % len(r.pkgFiles))
             for p in r.pkgFiles.values():
                 if p.missing:
                     print("Skip missing package %s" % (p.cfile.ofile))
