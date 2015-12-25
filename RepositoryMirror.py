@@ -30,7 +30,6 @@ def checkFile(file, size=None, md5sum=None):
     Return True if the file is present and matches given size and/or md5sum
     If None is given that field is NOT checked
     '''
-    global args
     try:
         if not os.access(file, os.R_OK):
             if verbose:
@@ -49,7 +48,7 @@ def checkFile(file, size=None, md5sum=None):
                     break
                 m.update(bof)
             if md5sum != m.hexdigest():
-                print("check(md5sum=%s) != %s - %s" % (md5sum, m.hexdigest(), file))
+                print("checkFile(md5sum=%s) != %s - %s" % (md5sum, m.hexdigest(), file))
                 return False
             return True
 
@@ -870,32 +869,7 @@ class CacheFile:
         '''
         Return True if the cached file is present and matches given size and md5sum if not None
         '''
-        global args
-        try:
-            if not os.access(self.ofile, os.R_OK):
-                if args.verbose:
-                    print('Missing file - %s' % self.ofile)
-                return False
-            if size != None and int(size) != os.path.getsize(self.ofile):
-                #print("check(size=%d) != %d - %s" % (int(size), os.path.getsize(self.ofile), self.ofile))
-                return False
-
-            if md5sum == None: return True
-
-            m = hashlib.md5()
-            with open(self.ofile, 'rb') as of:
-                while True:
-                    bof = of.read(CacheFile.BUFSIZE)
-                    if len(bof) == 0:
-                        break
-                    m.update(bof)
-                if md5sum != m.hexdigest():
-                    print("check(md5sum=%s) != %s - %s" % (md5sum, m.hexdigest(), self.ofile))
-                    return False
-                return True
-
-        except OSError:
-            return False
+        return checkFile(self.ofile, size=size, md5sum=md5sum)
 
     def match(self, ofile=None, tfile=None):
         '''Return True if the cached file matches the original file

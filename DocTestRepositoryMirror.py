@@ -38,8 +38,15 @@ RelFile()
  Description: Debian 7.0 Security Updates
 
 # Test checkFile() utility
-#>>> RepositoryMirror.checkFile(
-
+>>> RepositoryMirror.checkFile('jessie-test/jessie-mirror/dists/jessie/contrib/binary-all/Packages.gz', size=0)
+False
+>>> RepositoryMirror.checkFile('jessie-test/jessie-mirror/dists/jessie/contrib/binary-all/Packages.gz', size=27049)
+True
+>>> RepositoryMirror.checkFile('jessie-test/jessie-mirror/dists/jessie/contrib/binary-all/Packages.gz', md5sum='abc')
+checkFile(md5sum=abc) != bab1e8d873b38828727f399b90733654 - jessie-test/jessie-mirror/dists/jessie/contrib/binary-all/Packages.gz
+False
+>>> RepositoryMirror.checkFile('jessie-test/jessie-mirror/dists/jessie/contrib/binary-all/Packages.gz', md5sum='bab1e8d873b38828727f399b90733654')
+True
 >>> j = RepositoryMirror.RepositoryMirror(repo='jessie-test',dists=['jessie'],lmirror='tmp/jessie-mirror')
 >>> j
 RepositoryMirror(repo='jessie-test', dists=['jessie'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror='tmp/jessie-mirror')
