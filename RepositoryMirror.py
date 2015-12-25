@@ -22,6 +22,7 @@ from configparser import ConfigParser
 verbose = False
 dry_run = False
 very_dry_run = False
+check_md5sum = True
 
 os.umask(0o22)
 
@@ -236,16 +237,19 @@ Dictionaries:
         '''
         Check the Package file pname on the local mirror and it's debian packages
         '''
-        global args
 
         pkg = rel.pkgFiles[pname]
-        if args.verbose:
+        if verbose:
             print('checkPackage(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
                 % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
-        if not cfile.check(size=pkg.size, md5sum=pkg.md5sum):
+        if check_md5sum:
+            md5sum = pkg.md5sum
+        else:
+            md5sum = None
+        if not cfile.check(size=pkg.size, md5sum=md5sum):
             if update:
                 try:
                     cfile.fetch()
@@ -257,7 +261,7 @@ Dictionaries:
             else:
                 pkg.missing = True
         else:
-            if args.verbose:
+            if verbose:
                 print("checkPackage(path=%s url=%s) - ok" % (path, url))
             pfile = cfile.ofile
             pkg.modified = False
@@ -265,10 +269,10 @@ Dictionaries:
 
         if pkg.missing:
             print(' Warning: %s - package file %s missing' % (rel.name, pname))
-            if args.verbose:
+            if verbose:
                 print("package file (path=%s url=%s) - missing" % (path, url))
             return pkg
-        if args.verbose:
+        if verbose:
             print("processing Package file %s" % pfile)
         pkg.rdPkgFile(pfile)
         return pkg
