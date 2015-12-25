@@ -1,10 +1,11 @@
 #! /usr/bin/python3
 
 """
+# Test RepositoryMirror default constructor
 >>> import RepositoryMirror
 >>> a = RepositoryMirror.RepositoryMirror()
 >>> a
-RepositoryMirror(repo=http://web/security.debian.org, dists=['wheezy/updates', 'squeeze/updates', 'jessie/updates'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror=security.debian.org)
+RepositoryMirror(repo='http://web/security.debian.org', dists=['wheezy/updates', 'squeeze/updates', 'jessie/updates'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror='security.debian.org')
 >>> print(a)
 Configuration file: RM.cfg
 Repository: http://web/security.debian.org
@@ -19,10 +20,11 @@ Local Mirror stored in : security.debian.org
 'security.debian.org/dists/wheezy/updates/Release'
 >>> a.getReleaseURL()
 'http://web/security.debian.org/dists/wheezy/updates/Release'
->>> a = RepositoryMirror.RepositoryMirror()
+
+# Test Release File
 >>> relfile = RepositoryMirror.RelFile(a, "wheezy", "test/dmirror/dists/wheezy/Release", None)
 >>> relfile
-RelFile(RepositoryMirror(repo=http://web/security.debian.org, dists=['wheezy/updates', 'squeeze/updates', 'jessie/updates'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror=security.debian.org), 'wheezy', 'test/dmirror/dists/wheezy/Release', None)
+RelFile(RepositoryMirror(repo='http://web/security.debian.org', dists=['wheezy/updates', 'squeeze/updates', 'jessie/updates'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror='security.debian.org'), 'wheezy', 'test/dmirror/dists/wheezy/Release', None)
 >>> print(relfile)
 RelFile()
  name: wheezy
@@ -34,6 +36,13 @@ RelFile()
  Components: ['updates/main', 'updates/contrib', 'updates/non-free']
  Architectures: ['amd64', 'armel', 'armhf', 'i386', 'ia64', 'kfreebsd-amd64', 'kfreebsd-i386', 'mips', 'mipsel', 'powerpc', 's390', 's390x', 'sparc']
  Description: Debian 7.0 Security Updates
+
+# Test checkFile() utility
+#>>> RepositoryMirror.checkFile(
+
+>>> j = RepositoryMirror.RepositoryMirror(repo='jessie-test',dists=['jessie'],lmirror='tmp/jessie-mirror')
+>>> j
+RepositoryMirror(repo='jessie-test', dists=['jessie'], comps=['main', 'contrib', 'non-free'], archs=['amd64', 'all'], lmirror='tmp/jessie-mirror')
 """
 
 import RepositoryMirror

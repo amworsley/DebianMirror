@@ -25,6 +25,37 @@ very_dry_run = False
 
 os.umask(0o22)
 
+def checkFile(file, size=None, md5sum=None):
+    '''
+    Return True if the file is present and matches given size and/or md5sum
+    If None is given that field is NOT checked
+    '''
+    global args
+    try:
+        if not os.access(file, os.R_OK):
+            if verbose:
+                print('Missing file - %s' % file)
+            return False
+        if size != None and int(size) != os.path.getsize(file):
+            return False
+
+        if md5sum == None: return True
+
+        m = hashlib.md5()
+        with open(file, 'rb') as of:
+            while True:
+                bof = of.read(CacheFile.BUFSIZE)
+                if len(bof) == 0:
+                    break
+                m.update(bof)
+            if md5sum != m.hexdigest():
+                print("check(md5sum=%s) != %s - %s" % (md5sum, m.hexdigest(), file))
+                return False
+            return True
+
+    except OSError:
+        return False
+
 class RepositoryMirror:
     ''' Debian Repository Mirroror - check state and optionally update 
 Check a debian repository at a given URL. Repository consists of directory structure at repo:
@@ -406,13 +437,14 @@ Returns:
             if args.verbose:
                 print(" No detached signature using - %s ..." % rel_name)
             sig_cfile = None
-        print("has_sig:", has_sig, " rel_name=", rel_name, " update=", update)
+        #print("has_sig:", has_sig, " rel_name=", rel_name, " update=", update)
         cRelFile = self.checkReleaseFile(dist, cfile, update, sig_cfile)
         if cRelFile == None:
             cRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
         self.relfiles[dist] = cRelFile
         cRelFile.cfile = cfile
         return cRelFile
+
 
 
     def checkReleaseFile(self, dist, cfile, update, sig_cfile):
@@ -478,14 +510,14 @@ Returns:
         sys.exit(ret)
 
     def __repr__(self):
-        return "RepositoryMirror(repo={}, dists={}, comps={}, archs={}, lmirror={})".format(
-            self.repository, self.distributions, self.components, self.architectures, self.lmirror)
+        return "RepositoryMirror(repo='{}', dists={}, comps={}, archs={}, lmirror='{}')".format(
+            self.repo, self.dists, self.comps, self.archs, self.lmirror)
     def __str__(self):
         s = "Configuration file: " + self.cfgFile + "\n" + \
-            "Repository: " + str(self.repository) + "\n" + \
-            "distributions: " + str(self.distributions) + "\n" + \
-            "components: " + str(self.components) + "\n" + \
-            "architectures: " + str(self.architectures) + "\n" + \
+            "Repository: " + str(self.repo) + "\n" + \
+            "distributions: " + str(self.dists) + "\n" + \
+            "components: " + str(self.comps) + "\n" + \
+            "architectures: " + str(self.archs) + "\n" + \
             "Local Mirror stored in : " + self.lmirror + "\n"
         if self.pkgLists:
             s += "Debian packages mirrored are limited by these files:\n"
@@ -506,8 +538,9 @@ Holds summary of a Release file including:
     def __init__(self, rep, name, rfile, sig_cfile):
         ''' Reads in a Release from given path name
         rep - Repository Mirror
-        name - Release Name
+        name - Distribution/Release Name
         rfile - full path to Release file
+        info - dict of Relase file fields (indexed by field)
         '''
 
         self.repMirror = rep
