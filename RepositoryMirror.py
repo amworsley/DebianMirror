@@ -368,6 +368,9 @@ the Mirror's release details from the source repository
                     print('%s - Release file unchanged ' % d)
 
         for r in self.relfiles.values():
+            if not r.present:
+                print('Skipping Release %s as Release file %s is missing' % (r.name, r.cfile.ofile))
+                continue
             if args.verbose:
                 print('Examining release file %s (%s)' % (r.name, r.cfile.ofile))
             for p in r.pkgFiles:
@@ -1098,7 +1101,10 @@ if __name__ == '__main__':
     if repM.checkState(args.update) == False:
         if args.verbose:
             for r in repM.relfiles.values():
-                print("Release %s" % r)
+                if r.present:
+                    print("Release %s" % r)
+                else:
+                    print('Skipping Release %s : Release file %s is missing' % (r.name, r.cfile.ofile))
         if repM.missing:
             print("%s: Repository Mirror at %s is incomplete"
                 % (repM.repository, repM.lmirror))
