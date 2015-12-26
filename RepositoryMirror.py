@@ -572,11 +572,13 @@ Holds summary of a Release file including:
             if l.startswith('-----BEGIN PGP SIGNED MESSAGE-----'):
                 l = fp.readline()
             else:
-                print("Missing PGP Signed message header")
+                if not sig_cfile:
+                    print("Missing PGP Signed message header")
             if l.startswith('Hash:'):
                 fp.readline() # skip blank line
             else:
-                print("Signature Hash line")
+                if verbose:
+                    print("Found Signature Hash line")
 
         self.present = True
         for l in fp:
@@ -1099,12 +1101,11 @@ if __name__ == '__main__':
             % (repM.repository, repM.lmirror))
         sys.exit(1)
     if repM.checkState(args.update) == False:
-        if args.verbose:
-            for r in repM.relfiles.values():
-                if r.present:
-                    print("Release %s" % r)
-                else:
-                    print('Skipping Release %s : Release file %s is missing' % (r.name, r.cfile.ofile))
+        for r in repM.relfiles.values():
+            if r.present:
+                print("Release %s" % r)
+            else:
+                print('Skipping Release %s : Release file %s is missing' % (r.name, r.cfile.ofile))
         if repM.missing:
             print("%s: Repository Mirror at %s is incomplete"
                 % (repM.repository, repM.lmirror))
