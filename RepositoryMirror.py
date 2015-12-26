@@ -20,6 +20,7 @@ import stat
 from configparser import ConfigParser
 
 verbose = False
+extra_verbose = False
 dry_run = False
 very_dry_run = False
 check_md5sum = True
@@ -389,8 +390,7 @@ the Mirror's release details from the source repository
                     self.updated = True
                     missing += pkg.total_missing
                 cnt += pkg.cnt
-                if args.verbose:
-                    print('Package %s - cnt %d missing %d' % (pkg.name, pkg.cnt, pkg.total_missing))
+                print('Package %s - cnt %d missing %d' % (pkg.name, pkg.cnt, pkg.total_missing))
             if args.verbose:
                 print('Release %s - total %d' % (r.name, len(r.pkgFiles)))
             r.cnt = cnt
@@ -756,7 +756,7 @@ class PkgFile():
             f = self.repMirror.getDebPath(fn)
             u = self.repMirror.getDebURL(fn)
             s = int(p.size)
-            if args.verbose:
+            if extra_verbose:
                 print("rdPkgFile() Want ", p.name, " ofile=", f)
             cfile = CacheFile(u, ofile=f)
             if not cfile.check(size=s, md5sum=p.md5sum):
@@ -768,7 +768,8 @@ class PkgFile():
                     print(' Missing %s  (size %d, md5sum=%s)' % (fn, s, p.md5sum))
             else:
                 p.missing = False
-            self.pkgs[p.name] = p
+            # May have multiple versions of the same debian package in the one release!
+            self.pkgs[p.fname] = p
             self.pkgfiles[p.fname] = p
 
         fp.close()
@@ -1143,6 +1144,7 @@ if __name__ == '__main__':
             if args.verbose:
                 print("%d package files:" % len(r.pkgFiles))
             for p in r.pkgFiles.values():
+                print("Checking package %s for missing debs" % (p.cfile.ofile))
                 if p.missing:
                     print("Skip missing package %s" % (p.cfile.ofile))
                     continue
