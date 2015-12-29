@@ -17,6 +17,7 @@ import gzip
 import shutil
 import hashlib
 import stat
+import time
 from configparser import ConfigParser
 
 verbose = False
@@ -765,7 +766,7 @@ class PkgFile():
                 self.total_missing += s
                 self.cnt += 1
                 if args.verbose or self.cnt < 5:
-                    print(' Missing %s  (size %d, md5sum=%s)' % (fn, s, p.md5sum))
+                    print(' Missing %s  size %d, md5sum=%s' % (fn, s, p.md5sum))
             else:
                 p.missing = False
             # May have multiple versions of the same debian package in the one release!
@@ -773,6 +774,8 @@ class PkgFile():
             self.pkgfiles[p.fname] = p
 
         fp.close()
+        if not args.verbose and self.cnt >= 5:
+            print(' .... Total %d missing debs' % self.cnt)
         if not args.verbose:
             return
         if self.total_missing > 0:
@@ -1136,7 +1139,15 @@ if __name__ == '__main__':
                 nfails += 1
 
     if args.fetch:
-        if args.verbose: print("%d releases" % len(repM.relfiles))
+        if args.verbose:
+            print("%d releases" % len(repM.relfiles))
+            min_time = .1
+            repM.report_time = 5.
+        else:
+            min_time = 3.0
+            repM.report_time = 60.
+        repM.total_fetched = 0
+        repM.last_report = repM.fetch_start = time.perf_counter()
         for r in repM.relfiles.values():
             if r.sig:
                 r.sig.update()
@@ -1148,14 +1159,28 @@ if __name__ == '__main__':
                 if p.missing:
                     print("Skip missing package %s" % (p.cfile.ofile))
                     continue
-                    #p.cfile.fetch()
-                    #p.cfile.update()
                 for d in p.pkgs.values():
                     if d.missing:
                         print("Fetching %s - size %s" % (d.name, d.size))
                         try:
+                            start = time.perf_counter()
                             d.cfile.fetch()
                             d.cfile.update()
+                            elapsed = time.perf_counter() - start
+                            repM.total_fetched += int(d.size)
+                            if start - repM.last_report > repM.report_time:
+                                av_speed = repM.total_fetched/(start - repM.fetch_start)
+                                print( "%3.1f % fetched Estimating %d seconds to complete" %
+                                    (100*repM.total_fetched/repM.total_missing, (repM.total_missing - repM.total_fetched)/av_speed) )
+                            elif elapsed > min_time:
+                                speed = (8*int(d.size)/elapsed)/1000.
+                                if speed < 2000.0:
+                                    print("Downloaded in %.1f seconds = %.3f kbit/s" % (elapsed, speed))
+                                elif speed < 2000000.0:
+                                    print("Downloaded in %.3f seconds = %.3f Mbit/s" % (elapsed, speed/1000.))
+                                else:
+                                    print("Downloaded in %.6f seconds = %.3f Gbit/s" % (elapsed, speed/1000000.))
+
                         except OSError:
                             print("Failed to fetch %s" % d.name)
                             nfails += 1
