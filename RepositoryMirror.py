@@ -1146,8 +1146,6 @@ if __name__ == '__main__':
         else:
             min_time = 3.0
             repM.report_time = 60.
-        repM.total_fetched = 0
-        repM.last_report = repM.fetch_start = time.perf_counter()
         for r in repM.relfiles.values():
             if r.sig:
                 r.sig.update()
@@ -1160,6 +1158,8 @@ if __name__ == '__main__':
                     print("Skip missing package %s" % (p.cfile.ofile))
                     continue
                 for d in p.pkgs.values():
+                    p.total_fetched = 0
+                    p.last_report = p.fetch_start = time.perf_counter()
                     if d.missing:
                         print("Fetching %s - size %s" % (d.name, d.size))
                         try:
@@ -1167,11 +1167,11 @@ if __name__ == '__main__':
                             d.cfile.fetch()
                             d.cfile.update()
                             elapsed = time.perf_counter() - start
-                            repM.total_fetched += int(d.size)
-                            if start - repM.last_report > repM.report_time:
-                                av_speed = repM.total_fetched/(start - repM.fetch_start)
-                                print( "%3.1f % fetched Estimating %d seconds to complete" %
-                                    (100*repM.total_fetched/repM.total_missing, (repM.total_missing - repM.total_fetched)/av_speed) )
+                            p.total_fetched += int(d.size)
+                            if start - p.last_report > repM.report_time:
+                                av_speed = p.total_fetched/(start - p.fetch_start)
+                                print( "%s %s %s %3.1f % fetched Estimating %d seconds to complete" %
+                                    (p.name, p.arch, p.comp, 100*p.total_fetched/p.total_missing, (p.total_missing - p.total_fetched)/av_speed) )
                             elif elapsed > min_time:
                                 speed = (8*int(d.size)/elapsed)/1000.
                                 if speed < 2000.0:
