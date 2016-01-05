@@ -28,6 +28,16 @@ check_md5sum = True
 
 os.umask(0o22)
 
+# Handle python version dependancies...
+from sys import version
+
+version = version.split()[0]
+
+if version >= '3.3':
+    from time import perf_counter as gettime
+else:
+    from time import time as gettime
+
 def checkFile(file, size=None, md5sum=None):
     '''
     Return True if the file is present and matches given size and/or md5sum
@@ -1159,14 +1169,14 @@ if __name__ == '__main__':
                     continue
                 for d in p.pkgs.values():
                     p.total_fetched = 0
-                    p.last_report = p.fetch_start = time.perf_counter()
+                    p.last_report = p.fetch_start = gettime()
                     if d.missing:
                         print("Fetching %s - size %s" % (d.name, d.size))
                         try:
-                            start = time.perf_counter()
+                            start = gettime()
                             d.cfile.fetch()
                             d.cfile.update()
-                            elapsed = time.perf_counter() - start
+                            elapsed = gettime() - start
                             p.total_fetched += int(d.size)
                             if start - p.last_report > repM.report_time:
                                 av_speed = p.total_fetched/(start - p.fetch_start)
