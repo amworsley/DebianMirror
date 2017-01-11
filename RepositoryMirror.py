@@ -1,9 +1,9 @@
 #! /usr/bin/python3
 '''
 Updates a local mirror of a Debian Mirror.
-Reads the Debian Release/Package files and computes what has changed compared to the
-local mirror. Can report the changes and size of the download required for updating
-and optionally update the local mirror.
+Reads the Debian Release/Package files and computes what has changed compared to
+the local mirror. Can report the changes and size of the download required for
+updating and optionally update the local mirror.
 '''
 
 import urllib.request
@@ -17,8 +17,10 @@ import gzip
 import shutil
 import hashlib
 import stat
-import time
+#import time
 from configparser import ConfigParser
+# Handle python version dependancies...
+from sys import version
 
 verbose = False
 extra_verbose = False
@@ -28,8 +30,6 @@ check_md5sum = True
 
 os.umask(0o22)
 
-# Handle python version dependancies...
-from sys import version
 
 version = version.split()[0]
 
@@ -37,6 +37,7 @@ if version >= '3.3':
     from time import perf_counter as gettime
 else:
     from time import time as gettime
+
 
 def checkFile(file, size=None, md5sum=None):
     '''
@@ -69,7 +70,7 @@ def checkFile(file, size=None, md5sum=None):
         return False
 
 class RepositoryMirror:
-    ''' Debian Repository Mirroror - check state and optionally update 
+    ''' Debian Repository Mirroror - check state and optionally update
 Check a debian repository at a given URL. Repository consists of directory structure at repo:
 dists directory - which contains a directory for each distribution e.g. distribution wheezy/updates would
   have a Release file at $repo/dists/wheezy/updates/InRelease describing the components of that distribution
@@ -81,7 +82,7 @@ This might list a Package file contrib/binary-all/Packages.bz2 which would be at
 Release.gz - Release file defining all the distributions in this Release
     Consists of some header lines defining Suite, Validity Date, architecture list, component list followed by
     lists of package files in the format:
-<checksum> <size> <PackageFile> 
+<checksum> <size> <PackageFile>
 ...
 
 Packages.gz - List of Debian package entries - seperated by blank lines. Each entry contains:
@@ -101,10 +102,10 @@ Dictionaries:
     def __init__(self, repo=None, dists=None, comps=None, archs=None, lmirror=None):
         ''' Mirror subset of a debian repository - configurable subset of distributions/components/architectures
     repo - base URL of repository
-    dists - distributions 
-    comps - components 
-    archs - architectures 
-    lmirror - local directory to mirror 
+    dists - distributions
+    comps - components
+    archs - architectures
+    lmirror - local directory to mirror
         '''
 
         self.repo = repo = repo if repo else RepositoryMirror.repository
@@ -245,6 +246,45 @@ Dictionaries:
         url = self.repo + '/' + filename
         return url
 
+    def checkRelEntryFile(self, rel, pname, update=True):
+        '''
+        Check the Release Entry file pname on the local mirror
+        '''
+        pkg = rel.otherFiles[pname]
+        if verbose:
+            print('checkRelEntryFile(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
+                % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
+        path = self.getPackagePath(rel.name, pkg)
+        url = self.getPackageURL(rel.name, pkg)
+        pkg.cfile = cfile = CacheFile(url, ofile=path)
+        if check_md5sum:
+            md5sum = pkg.md5sum
+        else:
+            md5sum = None
+        if not cfile.check(size=pkg.size, md5sum=md5sum):
+            if update:
+                try:
+                    cfile.fetch()
+                    pfile = cfile.tfile
+                    pkg.modified = True
+                    pkg.missing = False
+                except:
+                    pkg.missing = True
+            else:
+                pkg.missing = True
+        else:
+            if verbose:
+                print("checkRelEntryFile(path=%s url=%s) - ok" % (path, url))
+            pfile = cfile.ofile
+            pkg.modified = False
+            pkg.missing = False
+
+        if pkg.missing:
+            print(' Warning: %s - Release Entry file %s missing' % (rel.name, pname))
+            if verbose:
+                print("Release entry file (path=%s url=%s) - missing" % (path, url))
+        return pkg
+
     def checkPackage(self, rel, pname, update=True):
         '''
         Check the Package file pname on the local mirror and it's debian packages
@@ -293,12 +333,12 @@ Dictionaries:
         '''Checks the mirror skeleton directores are present and possibly create them
         If not present and create=True it will attempt to create the directories
         It returns false if not present and create=False. If create=True it attempts to create them
-        returns True if it succeeds. Directories expected/checked for are: 
+        returns True if it succeeds. Directories expected/checked for are:
             repro
             repro/dists/<dist>/ - for each <dist> defined.
 
             Creates tempdir - used for temporary/cache files
-            Sets CacheFile.tdir - used as prefix for all CacheFile creations 
+            Sets CacheFile.tdir - used as prefix for all CacheFile creations
         '''
         v, n, nn = verbose, dry_run, very_dry_run
         if nn: n = True
@@ -353,7 +393,7 @@ Dictionaries:
         '''
 Update Mirror's State by reading repository's state
 Loops through the distributions specified and computes change_dists list
-of distribution and releaseCacheFile lists. If update is true will refresh 
+of distribution and releaseCacheFile lists. If update is true will refresh
 the Mirror's release details from the source repository
         '''
         global args
@@ -402,6 +442,24 @@ the Mirror's release details from the source repository
                     missing += pkg.total_missing
                 cnt += pkg.cnt
                 print('Package %s - cnt %d missing %d' % (pkg.name, pkg.cnt, pkg.total_missing))
+            for o in r.otherFiles:
+                if args.verbose:
+                    print('Examining other file %s ' % (o))
+                pkg = self.checkRelEntryFile(r, o, update)
+                if pkg.missing:
+                    self.updated = True
+                    self.missing = True
+                    cnt += 1
+                    continue
+                if update and pkg.modified:
+                    self.updated = True
+                    pkg.cfile.update()
+                    print('Updating File %s' % (pkg.name ))
+                #if pkg.total_missing > 0:
+                #    self.updated = True
+                #    missing += pkg.total_missing
+                #cnt += pkg.cnt
+                #print('Other File %s - needs updating' % (pkg.name ))
             if args.verbose:
                 print('Release %s - total %d' % (r.name, len(r.pkgFiles)))
             r.cnt = cnt
@@ -417,7 +475,7 @@ the Mirror's release details from the source repository
 Argument: dist - name of distribution e.g. wheezy/updates
           update - if true, fetch latest release file from original repository
 Returns:
-    Release file 
+    Release file
 
     Checks for Release.gpg - detached signature - if present uses that and sets flag has_sig
     if not present uses InRelease file, if not present fails
@@ -545,7 +603,7 @@ Returns:
 
 
 class RelFile():
-    ''' List of Package files in Release 
+    ''' List of Package files in Release
 Holds summary of a Release file including:
    name - Release name
    info - dict of parameters from head of release file
@@ -566,6 +624,7 @@ Holds summary of a Release file including:
         self.sig = sig_cfile
         self.info = {}
         self.pkgFiles = {}
+        self.otherFiles = {}
         self.changed = False
         self.present = False
         if name in rep.debList:
@@ -620,6 +679,15 @@ Holds summary of a Release file including:
                     if verbose:
                         print("Grab package %s" % (f))
                 continue
+            if len(w) > 2 and 'Translation' in w[2]:
+                f = w[2]
+                (comp, arch, bzctype) = PkgFile.parsePfile(f)
+                if comp in RepositoryMirror.components \
+                    and arch == 'Translation' and f.endswith('-en.bz2') :
+                    self.otherFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    if verbose:
+                        print("Grab Translation %s" % (f))
+                continue
             if verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
         fp.close()
@@ -659,7 +727,7 @@ class PkgEntry():
 
     def getPkgEntry(fp):
         '''Return a Package Entry or None from Package file fp'''
-        try: 
+        try:
             p = PkgEntry.rdPkgDetails(fp)
             if len(p) == 0:
                     return None
@@ -808,6 +876,8 @@ class PkgFile():
             arch = l[1][len('binary-'):]
         elif l[1] == 'source':
             arch = l[1]
+        elif l[1] == 'i18n':
+            arch = 'Translation'
         else: arch = 'other'
 
         e = l[-1]
@@ -1133,6 +1203,8 @@ if __name__ == '__main__':
     if repM.cnt > 0:
         print("%s Repository %d change%s" %
             (repM.repository, repM.cnt, ("" if repM.cnt == 1 else "s")))
+    elif repM.updated:
+        print("%s Repository updated" % repM.repository)
     else:
         print("%s Repository unchanged" % repM.repository)
 
