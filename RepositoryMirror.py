@@ -499,6 +499,10 @@ Returns:
 
         if has_sig:
             rel_name = "Release"
+            inrel_cfile = self.mkCacheFile(dist, "InRelease")
+            if update:
+                if inrel_cfile.fetch():
+                    inrel_cfile.update()
         else:
             rel_name = "InRelease"
         cfile = self.mkCacheFile(dist, rel_name)
