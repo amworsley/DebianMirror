@@ -1165,6 +1165,8 @@ if __name__ == '__main__':
         help='fetch missing packages')
     parser.add_argument('-norefresh', dest='update', action='store_false',
         help='do not refresh status from original repository')
+    parser.add_argument('-T', '--Timeout', dest='timeout', default=None,
+        help='give up after this many seconds|mins|hours|days - N[smhd] ')
 
     args = parser.parse_args()
     verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
@@ -1174,6 +1176,15 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(TestRepositoryMirror)
         unittest.TextTestRunner(verbosity=verbose).run(suite)
         sys.exit(0)
+
+    if args.timeout:
+        str2unit = { 's' : 1, 'm' : 60, 'h' : '3600', 'd' : 3600*24 }
+        unit = args.timeout[-1:]
+        if unit in str2unit:
+            unit = str2unit[unit];
+        else:
+            unit = 3600
+        args.timeout = gettime() + int(args.timeout[:-1]) * unit
 
     RepositoryMirror.cfgFile = args.cfgFile
     RepositoryMirror.config()
@@ -1233,17 +1244,26 @@ if __name__ == '__main__':
             min_time = 3.0
             repM.report_time = 60.
         for r in repM.relfiles.values():
+            if args.timeout and gettime() >= args.timeout:
+                print("Time out expired - skipping " + str(r))
+                continue;
             if r.sig:
                 r.sig.update()
             print("Fetching Release %s" % r)
             if args.verbose:
                 print("%d package files:" % len(r.pkgFiles))
             for p in r.pkgFiles.values():
+                if args.timeout and gettime() >= args.timeout:
+                    print("Time out expired skipping Package", p.name," ...")
+                    break
                 print("Checking package %s for missing debs" % (p.cfile.ofile))
                 if p.missing:
                     print("Skip missing package %s" % (p.cfile.ofile))
                     continue
                 for d in p.pkgs.values():
+                    if args.timeout and gettime() >= args.timeout:
+                        print("Time out expired skipping deb " + d.name + " ...")
+                        break
                     p.total_fetched = 0
                     p.last_report = p.fetch_start = gettime()
                     if d.missing:
@@ -1274,3 +1294,5 @@ if __name__ == '__main__':
     if nfails == 0:
         repM.cleanUp(0)
     repM.cleanUp(1)
+    if args.timeout and gettime() >= args.timeout:
+        print("Timed out expired - incomplete download");
