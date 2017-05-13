@@ -1247,7 +1247,7 @@ if __name__ == '__main__':
             if args.timeout and gettime() >= args.timeout:
                 print("Time out expired - skipping " + str(r))
                 continue;
-            if r.sig:
+            if args.update and r.sig:
                 r.sig.update()
             print("Fetching Release %s" % r)
             if args.verbose:
