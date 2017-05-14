@@ -1178,13 +1178,14 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if args.timeout:
-        str2unit = { 's' : 1, 'm' : 60, 'h' : '3600', 'd' : 3600*24 }
+        str2unit = { 's' : 1, 'm' : 60, 'h' : 3600, 'd' : 3600*24 }
         unit = args.timeout[-1:]
         if unit in str2unit:
-            unit = str2unit[unit];
+            args.timeout = gettime() + int(args.timeout[:-1]) * str2unit[unit]
         else:
-            unit = 3600
-        args.timeout = gettime() + int(args.timeout[:-1]) * unit
+            args.timeout = gettime() + int(args.timeout) * 3600
+    else:
+        args.timeout = 0.
 
     RepositoryMirror.cfgFile = args.cfgFile
     RepositoryMirror.config()
