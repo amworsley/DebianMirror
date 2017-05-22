@@ -307,7 +307,11 @@ Dictionaries:
                     cfile.fetch()
                     pfile = cfile.tfile
                     pkg.modified = True
-                    pkg.missing = False
+                    if cfile.check(size=pkg.size, md5sum=md5sum):
+                        pkg.missing = False
+                    else:
+                        print("Updated Package file %s doesn't match" % pkg.name)
+                        pkg.missing = True
                 except:
                     pkg.missing = True
             else:
@@ -819,6 +823,7 @@ class PkgFile():
         # read in Package entry seperated by blank lines
         if args.verbose:
             print("Reading %s " % (rfile))
+            st_time = gettime() + 60
         self.pkgs = {}
         self.pkgfiles = {}
         self.cnt = 0
@@ -828,6 +833,10 @@ class PkgFile():
             p = PkgEntry.getPkgEntry(fp)
             if p == None:
                 break;
+            if args.verbose:
+                if st_time < gettime():
+                    st_time = gettime() + 60
+                    print("Processed ", self.total, " Up to", p.name)
             self.total += 1
             if deblist and p.name not in deblist:
                 self.ignored += 1
@@ -842,7 +851,11 @@ class PkgFile():
             if extra_verbose:
                 print("rdPkgFile() Want ", p.name, " ofile=", f)
             cfile = CacheFile(u, ofile=f)
-            if not cfile.check(size=s, md5sum=p.md5sum):
+            if args.onlypkgs:
+                md5 = None
+            else:
+                md5 = p.md5sum
+            if not cfile.check(size=s, md5sum=md5):
                 p.missing = True
                 p.cfile = cfile
                 self.total_missing += s
@@ -1167,6 +1180,8 @@ if __name__ == '__main__':
         help='do not refresh status from original repository')
     parser.add_argument('-T', '--Timeout', dest='timeout', default=None,
         help='give up after this many seconds|mins|hours|days - N[smhd] ')
+    parser.add_argument('-only-pkgs-md5sum', dest='onlypkgs', action='store_false',
+        help='only check package file md5sums')
 
     args = parser.parse_args()
     verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
