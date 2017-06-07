@@ -347,8 +347,9 @@ Dictionaries:
         v, n, nn = verbose, dry_run, very_dry_run
         if nn: n = True
 
-        # Check for missing skeleton directories
         if create == False:
+            if v:
+                print("Check mirror's directory structure in %s" % self.lmirror)
             if not os.path.isdir(self.lmirror):
                 print("No local mirror %s - try -create option?" % self.lmirror)
                 return False
@@ -361,6 +362,8 @@ Dictionaries:
                             " - use -create to force it's creation") % dpath)
                     return False
         else:
+            if v:
+                print("Creating mirror's framework in %s" % self.lmirror)
             for d in self.dists:
                 reldir = os.path.join(self.lmirror, 'dists', d)
                 if os.path.isdir(reldir) == False:
@@ -487,9 +490,8 @@ Returns:
 
         global args
 
-
         if args.verbose:
-            print("Checking Release %s ..." % dist)
+            print("Looking for Release file for %s ..." % dist)
 
         sig_cfile = self.mkCacheFile(dist, "Release.gpg")
         has_sig = False # => signature file not present
@@ -505,6 +507,9 @@ Returns:
             rel_name = "Release"
             inrel_cfile = self.mkCacheFile(dist, "InRelease")
             if update:
+                if args.verbose:
+                    print(" Fetching InRelease file - %s -> %s..." %
+                        (inrel_cfile.url, inrel_cfile.ofile))
                 if inrel_cfile.fetch():
                     inrel_cfile.update()
         else:
