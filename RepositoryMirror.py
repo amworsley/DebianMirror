@@ -307,8 +307,10 @@ Dictionaries:
                     cfile.fetch()
                     pfile = cfile.tfile
                     pkg.modified = True
-                    if cfile.check(size=pkg.size, md5sum=md5sum):
+                    if checkFile(pfile, size=pkg.size, md5sum=md5sum):
                         pkg.missing = False
+                        cfile.update()
+                        pfile = cfile.ofile
                     else:
                         print("Updated Package file %s doesn't match" % pkg.name)
                         pkg.missing = True
