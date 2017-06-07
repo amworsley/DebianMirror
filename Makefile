@@ -16,6 +16,9 @@ IFILES := RepositoryMirror.py update-rm.sh
 install: $(IFILES)
 	cp $? $(INSTALL_PATH)
 
+clean:
+	rm -rf azza-updates-50 azza-updates
+
 # Check fast local mirror
 azzatest: azza.cfg
 	rm -rf azza-updates
