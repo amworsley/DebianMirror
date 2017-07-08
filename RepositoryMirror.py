@@ -667,6 +667,7 @@ Holds summary of a Release file including:
             l = l.lstrip().rstrip()
             w = l.split()
             #print('%s - w=%s' % (repr(l), repr(w)))
+            if len(w) <= 0: continue
             if w[0] in { 'MD5Sum:', 'SHA1:', 'SHA256:' }:
                 break
             if w[0][-1] == ':':
