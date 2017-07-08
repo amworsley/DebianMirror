@@ -7,6 +7,7 @@ help:
 	@echo "    smalltest - 1-2 minute test 4-5 file  fetches : azza-50.cfg"
 	@echo "    azzatest - long 5 minute test full local repository fetch : azza.cfg"
 	@echo "    install - copy $(IFILES) into $(INSTALL_PATH)"
+	@echo "    diff - diff local RepositoryMirror.py with installed version"
 
 lint: RepositoryMirror.py
 	python3 -m py_compile $?
@@ -18,6 +19,13 @@ install: $(IFILES)
 
 clean:
 	rm -rf azza-updates-50 azza-updates
+diff-RepositoryMirror.py: $(INSTALL_PATH)/RepositoryMirror.py RepositoryMirror.py
+	-diff -u $^
+
+diff-update-rm.sh: $(INSTALL_PATH)/update-rm.sh update-rm.sh
+	-diff -u $^
+
+diff: diff-RepositoryMirror.py diff-update-rm.sh
 
 # Check fast local mirror
 azzatest: azza.cfg
