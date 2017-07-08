@@ -6,6 +6,8 @@ RM=/movies3/deb-mirror/
 RMPATH=/usr/local/bin
 
 cd $RM
-$RMPATH/RepositoryMirror.py -v -fetch
-$RMPATH/RepositoryMirror.py -v -fetch -c jessie.cfg
-$RMPATH/RepositoryMirror.py -v -fetch -c stretch.cfg
+$RMPATH/RepositoryMirror.py -fetch
+$RMPATH/RepositoryMirror.py -fetch -c jessie.cfg
+$RMPATH/RepositoryMirror.py -fetch -c stretch.cfg
+$RMPATH/RepositoryMirror.py -c stretch-updates.cfg  -fetch
+$RMPATH/RepositoryMirror.py -c jessie-updates.cfg  -fetch
