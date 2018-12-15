@@ -1,4 +1,4 @@
-image: debian:latest
+image: debian:azza
 stages:
 - build
 - test
