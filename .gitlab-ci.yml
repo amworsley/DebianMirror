@@ -6,7 +6,7 @@ stages:
 
 before_script:
   - apt update
-  - apt install procps
+  - apt-get install -y procps
   - /bin/ps axf
 
 build:
