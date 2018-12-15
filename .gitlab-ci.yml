@@ -1,0 +1,25 @@
+image: debian:latest
+stages:
+- build
+- test
+#- release
+
+before_script:
+  - ps axf
+
+build:
+  stage: build
+  script:
+    - echo "Building"
+
+test:
+  stage: test
+  script:
+    - echo "Testing"
+
+#release:
+#  stage: release
+#  script:
+#    - echo "Release"
+#  only:
+#    - master
