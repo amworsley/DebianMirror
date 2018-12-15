@@ -5,7 +5,9 @@ stages:
 #- release
 
 before_script:
-  - ps axf
+  - apt update
+  - apt install procps
+  - /bin/ps axf
 
 build:
   stage: build
