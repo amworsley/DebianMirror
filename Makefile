@@ -1,6 +1,6 @@
 PREFIX=/usr/local/
 
-.PHONY: help
+.PHONY: help azzatest stretchtest
 help:
 	@echo "targets:"
 	@echo "    tests fetch from local repository see config files for details"
@@ -35,6 +35,14 @@ azzatest: azza.cfg
 	./RepositoryMirror.py -c azza.cfg
 	./RepositoryMirror.py -c azza.cfg -fetch
 	./RepositoryMirror.py -c azza.cfg
+
+stretchtest: stretchtest.cfg
+	rm -rf stretchtest
+	./RepositoryMirror.py -c stretchtest.cfg -info
+	./RepositoryMirror.py -c stretchtest.cfg -create
+	./RepositoryMirror.py -c stretchtest.cfg
+	./RepositoryMirror.py -c stretchtest.cfg -fetch
+	./RepositoryMirror.py -c stretchtest.cfg
 
 smalltest: azza-50.cfg
 	echo "Testing -info"

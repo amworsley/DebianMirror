@@ -704,8 +704,23 @@ Holds summary of a Release file including:
                     if verbose:
                         print("Grab Translation %s" % (f))
                 continue
+            if len(w) > 2 and '/dep11/' in w[2]:
+                f = w[2]
+                (comp, arch, bzctype) = PkgFile.parsePfile(f)
+                if args.debug:
+                     print("Line:%s\ndep11 - comp='%s' arch='%s' bzctype='%s' "
+                                % (l, comp, arch, bzctype))
+                if comp in RepositoryMirror.components \
+                    and bzctype == 'gzip' \
+                    and arch in RepositoryMirror.architectures  or arch == 'any':
+                    self.otherFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    if verbose:
+                        print("Grab component %s" % (comp))
+                continue
             if verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
+                if args.debug:
+                     print("w[2]='%s' " % (w[2]))
         fp.close()
 
         fields = self.info
@@ -903,6 +918,25 @@ class PkgFile():
             arch = l[1]
         elif l[1] == 'i18n':
             arch = 'Translation'
+        elif l[1] == 'dep11' and len(l) > 2:
+            if l[2].startswith('Components-'):
+                arch = l[2][len('Components-'):l[2].index('.')]
+                c = 'Components'
+            elif l[2].startswith('icons-'):
+                arch = 'any'
+                c = 'icons'
+            else:
+                arch = 'other'
+            e = l[-1]
+            if e.endswith('.gz'):
+                ctype = 'gzip'
+            elif e.endswith('.bz2'):
+                ctype = 'bzip'
+            elif e.endswith('.xz'):
+                ctype = 'bzip'
+            else:
+                ctype = 'plain'
+            return (c, arch, ctype)
         else: arch = 'other'
 
         e = l[-1]
