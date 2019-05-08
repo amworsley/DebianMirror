@@ -1005,6 +1005,8 @@ class CacheFile:
                 if args.uselinks:
                     if args.verbose:
                         print("os.link(%s, %s)" % (req.selector, self.tfile))
+                    if os.access(self.tfile, os.F_OK):
+                        os.unlink(self.tfile)
                     os.link(req.selector, self.tfile)
                     return True
                 if args.verbose:
