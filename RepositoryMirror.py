@@ -8,6 +8,7 @@ updating and optionally update the local mirror.
 
 import urllib.request
 import os
+import shutil
 import unittest
 import argparse
 import sys
@@ -541,7 +542,7 @@ Returns:
         ''' Check release file against latest version in original repository'''
         try:
             if update and not cfile.fetch():
-                print("Unable to fetch Release " + dist + " defintion file at " + cfile.url)
+                print("Unable to fetch Release " + dist + " definition file at " + cfile.url)
                 return None
             if update and sig_cfile and not sig_cfile.fetch():
                 print("Unable to fetch Release Signature file at " + cfile.url)
@@ -998,6 +999,20 @@ class CacheFile:
             if args.dry_run:
                 of.close()
                 return True
+            req = urllib.request.Request(self.url)
+            if req.type == 'file':
+                of.close()
+                if args.uselinks:
+                    if args.verbose:
+                        print("os.link(%s, %s)" % (req.selector, self.tfile))
+                    os.link(req.selector, self.tfile)
+                    return True
+                if args.verbose:
+                    print("shutil.copy(%s, %s)" % (req.selector, self.tfile))
+                # Fix Problem with tfile being readonly
+                os.chmod(self.tfile, stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
+                shutil.copy(req.selector, self.tfile)
+                return True
             uf = urllib.request.urlopen(self.url)
 
             while True:
@@ -1073,7 +1088,7 @@ class CacheFile:
                 print('mv %s %s' % (tfile, ofile))
             else:
                 os.rename(tfile, ofile)
-                os.chmod(ofile, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH)
+                os.chmod(ofile, stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
             return True
 
         except OSError as e:
@@ -1086,7 +1101,7 @@ class CacheFile:
                     else:
                         os.makedirs(dname)
                         os.rename(tfile, ofile)
-                        os.chmod(ofile, stat.S_IRUSR|stat.S_IRGRP|stat.S_IROTH)
+                        os.chmod(ofile, stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
                         if os.access(ofile, os.R_OK):
                             print("Created %s" % ofile)
                             return True
@@ -1218,6 +1233,8 @@ if __name__ == '__main__':
         help='Create Repository if missing')
     parser.add_argument('-fetch', dest='fetch', action='store_true',
         help='fetch missing packages')
+    parser.add_argument('-uselinks', dest='uselinks', action='store_true',
+        help='URLs are local files - use links to save space')
     parser.add_argument('-norefresh', dest='update', action='store_false',
         help='do not refresh status from original repository')
     parser.add_argument('-T', '--Timeout', dest='timeout', default=None,

@@ -20,13 +20,21 @@ die() {
 check_RM() {
     EXP_OUTPUT=${1:-"azza-updates-50 is up to date"}
     ARG1=${2:-"-norefresh"}
-    if ./RepositoryMirror.py -c azza-50.cfg $ARG1 \
-      | grep "$EXP_OUTPUT"; then
+    TFILE="check_RM.$$"
+    ./RepositoryMirror.py -c azza-50.cfg $ARG1 > $TFILE
+    ST=$?
+    if [ "$ST" != "0" ]; then
+        echo "check_RM() warning: ./RepositoryMirror.py -c azza-50.cfg $ARG1 - exit($ST)"
+    fi
+    if grep "$EXP_OUTPUT" $TFILE; then
         echo "$EXP_OUTPUT - ok"
     else
+	echo "./RepositoryMirror.py -c azza-50.cfg $ARG1 - output incorrect:"
+	cat $TFILE
         die "check_RM() expected $EXP_OUTPUT - fail" 2
         exit 2
     fi
+    rm $TFILE
 }
 # Check that a norefresh produces given message
 check_norefresh() {
@@ -55,10 +63,10 @@ testEND() {
 }
 check_missing_release () {
     testBG "detection of missing Release file"
-    rm azza-updates-50/dists/wheezy/updates/Release
-    check_norefresh 'Warning: wheezy/updates - Release file missing' 
+    rm azza-updates-50/dists/jessie/updates/Release
+    check_norefresh 'Warning: jessie/updates - Release file missing' 
     ./RepositoryMirror.py -c azza-50.cfg
-    if [ -e azza-updates-50/dists/wheezy/updates/Release ]; then 
+    if [ -e azza-updates-50/dists/jessie/updates/Release ]; then 
 	echo "Updated Release file - ok"
     else
 	die "Release file - not updated"
@@ -80,12 +88,21 @@ testFullUpdate() {
 testFullUpdate
 check_missing_release
 
-testBG "Testing Missing Package file"
-rm azza-updates-50/dists/wheezy/updates/contrib/binary-amd64/Packages.bz2
+DP="azza-updates-50/dists/jessie/updates"
+M_PKG_FILE="contrib/binary-amd64/Packages"
+if [ -e $DP/${M_PKG_FILE}.bz2 ]; then
+    M_PKG_FILE="$M_PKG_FILE".bz2
+elif [ -e $DP/${M_PKG_FILE}.gz ]; then
+    M_PKG_FILE="$M_PKG_FILE".gz
+else
+    M_PKG_FILE="$(cd $DP; echo ${M_PKG_FILE}*)"
+fi
+testBG "Testing Missing Package file - $DP / $M_PKG_FILE"
+rm $DP/$M_PKG_FILE
 
-check_norefresh 'Warning: wheezy/updates - package file contrib/binary-amd64/Packages.bz2 missing' 
+check_norefresh "Warning: jessie/updates - package file $M_PKG_FILE missing" 
 
-if [ -e azza-updates-50/dists/wheezy/updates/contrib/binary-amd64/Packages.bz2 ]; then 
+if [ -e $DP/$M_PKG_FILE ]; then 
     echo "Package file was refreshed - -norefresh option not working..."
     echo $FUNCNAME
     exit 1
@@ -94,7 +111,7 @@ else
 fi
 
 ./RepositoryMirror.py -c azza-50.cfg
-if [ -e azza-updates-50/dists/wheezy/updates/contrib/binary-amd64/Packages.bz2 ]; then 
+if [ -e $DP/$M_PKG_FILE ]; then 
     echo "Package file was refreshed - correctly"
 else
     echo "Package file was not updated by ./RepositoryMirror.py -c azza-50.cfg"
@@ -104,7 +121,9 @@ check_uptodate
 testEND
 
 testBG "Missing .deb file"
-DFILE='azza-updates-50/pool/updates/main/x/xorg-server/xserver-common_1.12.4-6+deb7u2_all.deb'
+DNAME="main/x/xorg-server/xserver-common"
+DFILE="$(echo azza-updates-50/pool/updates/${DNAME}_*_all.deb)"
+#DFILE="azza-updates-50/pool/updates/main/x/xorg-server/xserver-common_1.12.4-6+deb7u2_all.deb'
 rm -f $DFILE
 
 ./RepositoryMirror.py -c azza-50.cfg
