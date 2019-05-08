@@ -972,12 +972,15 @@ class CacheFile:
         else:
             self.ofile = os.path.join(CacheFile.tdir, CacheFile.ofile)
         self.tfile = tfile
+        self.fetched = False
 
     def fetch(self, tfile=None):
         ''' fetch a fresh copy of the file into tfile '''
 
         global args
 
+        if self.fetched:
+            return True
         try:
             if tfile:
                 self.tfile = tfile
@@ -1003,17 +1006,19 @@ class CacheFile:
             if req.type == 'file':
                 of.close()
                 if args.uselinks:
-                    if args.verbose:
-                        print("os.link(%s, %s)" % (req.selector, self.tfile))
+                    #if args.verbose:
+                    #    print("os.link(%s, %s)" % (req.selector, self.tfile))
                     if os.access(self.tfile, os.F_OK):
                         os.unlink(self.tfile)
                     os.link(req.selector, self.tfile)
+                    self.fetched = True
                     return True
-                if args.verbose:
-                    print("shutil.copy(%s, %s)" % (req.selector, self.tfile))
+                #if args.verbose:
+                #    print("shutil.copy(%s, %s)" % (req.selector, self.tfile))
                 # Fix Problem with tfile being readonly
                 os.chmod(self.tfile, stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
                 shutil.copy(req.selector, self.tfile)
+                self.fetched = True
                 return True
             uf = urllib.request.urlopen(self.url)
 
@@ -1024,6 +1029,7 @@ class CacheFile:
 
             uf.close()
             of.close()
+            self.fetched = True
             return True
 
         except urllib.error.HTTPError:
