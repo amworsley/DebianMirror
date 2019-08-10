@@ -44,6 +44,14 @@ stretchtest: stretchtest.cfg
 	./RepositoryMirror.py -c stretchtest.cfg -fetch
 	./RepositoryMirror.py -c stretchtest.cfg
 
+buster-updates: buster-updates.cfg
+	rm -rf buster-updates-test
+	./RepositoryMirror.py -c buster-updates.cfg -info
+	./RepositoryMirror.py -c buster-updates.cfg -create
+	./RepositoryMirror.py -c buster-updates.cfg
+	./RepositoryMirror.py -c buster-updates.cfg -fetch
+	./RepositoryMirror.py -c buster-updates.cfg
+
 smalltest: azza-50.cfg
 	echo "Testing -info"
 	rm -rf azza-updates-50

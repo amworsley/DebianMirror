@@ -27,7 +27,7 @@ verbose = False
 extra_verbose = False
 dry_run = False
 very_dry_run = False
-check_md5sum = True
+check_hash = True
 
 os.umask(0o22)
 
@@ -40,7 +40,7 @@ else:
     from time import time as gettime
 
 
-def checkFile(file, size=None, md5sum=None):
+def checkFile(file, size=None, hash=None, type='MD5Sum'):
     '''
     Return True if the file is present and matches given size and/or md5sum
     If None is given that field is NOT checked
@@ -53,17 +53,27 @@ def checkFile(file, size=None, md5sum=None):
         if size != None and int(size) != os.path.getsize(file):
             return False
 
-        if md5sum == None: return True
+        #print("checkFile(%s, size=%s, hash=%s, type=%s)" %
+        #    (file, size, str(hash), type))
+        if hash == None: return True
 
-        m = hashlib.md5()
+        if type == None or type == 'MD5Sum':
+            m = hashlib.md5()
+        elif type == 'SHA256':
+            m = hashlib.sha256()
+        else:
+            print("WARNING: Ignoring unknown hash %s for file %s" %
+                (type, file))
+            return True
         with open(file, 'rb') as of:
             while True:
                 bof = of.read(CacheFile.BUFSIZE)
                 if len(bof) == 0:
                     break
                 m.update(bof)
-            if md5sum != m.hexdigest():
-                print("checkFile(md5sum=%s) != %s - %s" % (md5sum, m.hexdigest(), file))
+            if hash != m.hexdigest():
+                print("checkFile(hash=%s, type=%s) != %s - %s"
+                    % (hash, str(type), m.hexdigest(), file))
                 return False
             return True
 
@@ -258,11 +268,11 @@ Dictionaries:
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
-        if check_md5sum:
-            md5sum = pkg.md5sum
+        if check_hash:
+            hash = pkg.hash
         else:
-            md5sum = None
-        if not cfile.check(size=pkg.size, md5sum=md5sum):
+            hash = None
+        if not cfile.check(size=pkg.size, hash=hash, type=rel.hashtype):
             if update:
                 try:
                     cfile.fetch()
@@ -293,22 +303,22 @@ Dictionaries:
 
         pkg = rel.pkgFiles[pname]
         if verbose:
-            print('checkPackage(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
-                % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
+            print('checkPackage(rel=%s comp=%s arch=%s size=%s, hash(%s)=%s)'
+                % (rel.name, pkg.comp, pkg.arch, pkg.size, rel.hashtype, pkg.hash))
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
-        if check_md5sum:
-            md5sum = pkg.md5sum
+        if check_hash:
+            hash = pkg.hash
         else:
-            md5sum = None
-        if not cfile.check(size=pkg.size, md5sum=md5sum):
+            hash = None
+        if not cfile.check(size=pkg.size, hash=hash, type=rel.hashtype):
             if update:
                 try:
                     cfile.fetch()
                     pfile = cfile.tfile
                     pkg.modified = True
-                    if checkFile(pfile, size=pkg.size, md5sum=md5sum):
+                    if checkFile(pfile, size=pkg.size, hash=hash, hashtype=rel.hashtype):
                         pkg.missing = False
                         cfile.update()
                         pfile = cfile.ofile
@@ -645,6 +655,7 @@ Holds summary of a Release file including:
         self.otherFiles = {}
         self.changed = False
         self.present = False
+        self.hashtype = 'MD5Sum'
         if name in rep.debList:
             self.deblist = rep.debList[name]
         else:
@@ -674,19 +685,26 @@ Holds summary of a Release file including:
                 break
             l = l.lstrip().rstrip()
             w = l.split()
-            #print('%s - w=%s' % (repr(l), repr(w)))
             if len(w) <= 0: continue
             if w[0] in { 'MD5Sum:', 'SHA1:', 'SHA256:' }:
+                hash = w[0][0:-1]
+                self.hashtype = hash
                 break
             if w[0][-1] == ':':
                 self.info[w[0][0:-1]] = ' '.join(w[1:])
                 continue
             print("RelFile: %s Ignoring strange word %s" % (rfile, w[0]))
 
+        if verbose:
+            print(self.name, " - Hash is type ", self.hashtype)
         for l in fp:
             l = l.lstrip().rstrip()
             w = l.split()
             if w[0] in { 'MD5Sum:', 'SHA1:', 'SHA256:' }:
+                #hash = w[0][0:-1]
+                #self.hashtype = hash
+                #print("#2 self.hashtype=", hash)
+                print("skipping - other hashes: ", w[0][0:-1])
                 break
             if len(w) > 2 and 'Packages' in w[2]:
                 f = w[2]
@@ -694,7 +712,7 @@ Holds summary of a Release file including:
                 if ctype == 'gzip' \
                     and comp in RepositoryMirror.components \
                     and arch in RepositoryMirror.architectures :
-                    self.pkgFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    self.pkgFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                     if verbose:
                         print("Grab package %s" % (f))
                 continue
@@ -703,7 +721,7 @@ Holds summary of a Release file including:
                 (comp, arch, bzctype) = PkgFile.parsePfile(f)
                 if comp in RepositoryMirror.components \
                     and arch == 'Translation' and f.endswith('-en.bz2') :
-                    self.otherFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    self.otherFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                     if verbose:
                         print("Grab Translation %s" % (f))
                 continue
@@ -716,9 +734,13 @@ Holds summary of a Release file including:
                 if comp in RepositoryMirror.components \
                     and bzctype == 'gzip' \
                     and arch in RepositoryMirror.architectures  or arch == 'any':
-                    self.otherFiles[f] = PkgFile(rep, f, md5sum=w[0], size=w[1], relfile=self)
+                    self.otherFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                     if verbose:
                         print("Grab component %s" % (comp))
+                continue
+            if len(w) > 2 and 'Contents-' in w[2]:
+                continue
+            if len(w) > 2 and 'Sources' in w[2]:
                 continue
             if verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
@@ -752,11 +774,12 @@ Holds summary of a Release file including:
 
 class PkgEntry():
     ''' Package file entry - usually detailing a .deb file '''
-    def __init__(self, name, fname, md5sum, size):
+    def __init__(self, name, fname, hash, hashtype, size):
         ''' Package file entry defining a .deb file '''
         self.name = name
         self.fname = fname
-        self.md5sum = md5sum
+        self.hash = hash
+        self.hashtype = hashtype
         self.size = size
 
     def getPkgEntry(fp):
@@ -767,9 +790,14 @@ class PkgEntry():
                     return None
 
             #print("getPkgEntry() = %s" % repr(p))
-            if check_md5sum:
-                return PkgEntry(p['Package'], p['Filename'], p['MD5sum'], p['Size'])
-            return PkgEntry(p['Package'], p['Filename'], None, p['Size'])
+            if check_hash:
+                if 'MD5sum' in p:
+                    return PkgEntry(p['Package'], p['Filename'], p['MD5sum'], 'MD5Sum', p['Size'])
+                elif 'SHA256' in p:
+                    return PkgEntry(p['Package'], p['Filename'], p['SHA256'], 'SHA256', p['Size'])
+                else:
+                    raise Exception
+            return PkgEntry(p['Package'], p['Filename'], None, 'MD5Sum', p['Size'])
 
         except OSError as e:
             print('getPkgEntry() failed: %s' % e.strerror)
@@ -813,7 +841,7 @@ class PkgFile():
        total_missing = size in bytes of all missing / out of date packages
        relfile = Release we belong to
     '''
-    def __init__(self, rep, name, md5sum=0, size=0, relfile=None):
+    def __init__(self, rep, name, hash=0, size=0, relfile=None):
         ''' Create Package File info '''
         self.repMirror = rep
         self.name = name
@@ -827,7 +855,7 @@ class PkgFile():
         else:
             ctype = 'plain'
         self.ctype = ctype
-        self.md5sum = md5sum
+        self.hash = hash
         self.size = size
         p = PkgFile.parsePfile(name)
         self.comp, self.arch = p[0], p[1]
@@ -880,16 +908,17 @@ class PkgFile():
                 print("rdPkgFile() Want ", p.name, " ofile=", f)
             cfile = CacheFile(u, ofile=f)
             if args.onlypkgs:
-                md5 = None
+                hash = None
             else:
-                md5 = p.md5sum
-            if not cfile.check(size=s, md5sum=md5):
+                hash = p.hash
+            #print("check", p.name, "hash=", str(hash), "type=", self.relfile.hashtype)
+            if not cfile.check(size=s, hash=hash, type=self.relfile.hashtype):
                 p.missing = True
                 p.cfile = cfile
                 self.total_missing += s
                 self.cnt += 1
                 if args.verbose or self.cnt < 5:
-                    print(' Missing %s  size %d, md5sum=%s' % (fn, s, p.md5sum))
+                    print(' Missing %s  size %d, hash(%s)=%s' % (fn, s, p.hashtype, p.hash))
             else:
                 p.missing = False
             # May have multiple versions of the same debian package in the one release!
@@ -1044,11 +1073,11 @@ class CacheFile:
             print("OSError:", tfile)
             return False
 
-    def check(self, size=None, md5sum=None):
+    def check(self, size=None, hash=None, type=None):
         '''
         Return True if the cached file is present and matches given size and md5sum if not None
         '''
-        return checkFile(self.ofile, size=size, md5sum=md5sum)
+        return checkFile(self.ofile, size=size, hash=hash, type=type)
 
     def match(self, ofile=None, tfile=None):
         '''Return True if the cached file matches the original file
@@ -1239,6 +1268,8 @@ if __name__ == '__main__':
         help='debug mode')
     parser.add_argument('-v', dest='verbose', action='store_true',
         help='verbose mode')
+    parser.add_argument('-e', dest='extra_verbose', action='store_true',
+        help='extra verbose mode')
     parser.add_argument('-run_tests', dest='run_tests', action='store_true',
         help='Run unit tests')
     parser.add_argument('-create', dest='create', action='store_true',
@@ -1251,16 +1282,17 @@ if __name__ == '__main__':
         help='do not refresh status from original repository')
     parser.add_argument('-T', '--Timeout', dest='timeout', default=None,
         help='give up after this many seconds|mins|hours|days - N[smhd] ')
-    parser.add_argument('-only-pkgs-size', dest='onlypkgs', action='store_false',
-        help='only check package file size')
+    parser.add_argument('-only-pkgs-size', dest='onlypkgs', action='store_true',
+        default=False, help='only check package file size')
 
     args = parser.parse_args()
     verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
+    extra_verbose = args.extra_verbose
 
-    if not args.onlypkgs:
-        check_md5sum = False
+    if args.onlypkgs:
+        check_hash = False
         if verbose:
-            print("check_md5sum=", str(check_md5sum))
+            print("check_hash=", str(check_hash))
 
     if args.run_tests:
         verbose = 2 if args.verbose else 1
