@@ -440,8 +440,10 @@ the Mirror's release details from the source repository
                     print('Examining pkg file %s ' % (p))
                 pkg = self.checkPackage(r, p, update)
                 if pkg.missing:
+                    if update:
+                        pkg.cfile.update()
                     self.updated = True
-                    self.missing = True
+                    self.missing = False
                     cnt += 1
                     continue
                 if update and pkg.modified:
@@ -765,7 +767,9 @@ class PkgEntry():
                     return None
 
             #print("getPkgEntry() = %s" % repr(p))
-            return PkgEntry(p['Package'], p['Filename'], p['MD5sum'], p['Size'])
+            if check_md5sum:
+                return PkgEntry(p['Package'], p['Filename'], p['MD5sum'], p['Size'])
+            return PkgEntry(p['Package'], p['Filename'], None, p['Size'])
 
         except OSError as e:
             print('getPkgEntry() failed: %s' % e.strerror)
@@ -1247,11 +1251,16 @@ if __name__ == '__main__':
         help='do not refresh status from original repository')
     parser.add_argument('-T', '--Timeout', dest='timeout', default=None,
         help='give up after this many seconds|mins|hours|days - N[smhd] ')
-    parser.add_argument('-only-pkgs-md5sum', dest='onlypkgs', action='store_false',
-        help='only check package file md5sums')
+    parser.add_argument('-only-pkgs-size', dest='onlypkgs', action='store_false',
+        help='only check package file size')
 
     args = parser.parse_args()
     verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
+
+    if not args.onlypkgs:
+        check_md5sum = False
+        if verbose:
+            print("check_md5sum=", str(check_md5sum))
 
     if args.run_tests:
         verbose = 2 if args.verbose else 1
