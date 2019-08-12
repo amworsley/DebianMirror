@@ -44,6 +44,14 @@ stretchtest: stretchtest.cfg
 	./RepositoryMirror.py -c stretchtest.cfg -fetch
 	./RepositoryMirror.py -c stretchtest.cfg
 
+buster-security-updates: buster-security-updates.cfg
+	rm -rf buster-security-updates-test
+	./RepositoryMirror.py -c buster-security-updates.cfg -info
+	./RepositoryMirror.py -c buster-security-updates.cfg -create
+	./RepositoryMirror.py -c buster-security-updates.cfg
+	./RepositoryMirror.py -c buster-security-updates.cfg -fetch
+	./RepositoryMirror.py -c buster-security-updates.cfg
+
 buster-updates: buster-updates.cfg
 	rm -rf buster-updates-test
 	./RepositoryMirror.py -c buster-updates.cfg -info

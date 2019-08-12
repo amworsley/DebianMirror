@@ -16,6 +16,6 @@ $RMPATH/RepositoryMirror.py -fetch -c stretch.cfg
 $RMPATH/RepositoryMirror.py -c stretch-updates.cfg  -fetch
 $RMPATH/RepositoryMirror.py -c stretch-updates-security.cfg  -fetch
 # testing
-$RMPATH/RepositoryMirror.py -c buster.cfg  -fetch -only-pkgs-size
-$RMPATH/RepositoryMirror.py -c buster-updates.cfg  -fetch -only-pkgs-size
-$RMPATH/RepositoryMirror.py -c buster-updates-security.cfg  -fetch -only-pkgs-size
+$RMPATH/RepositoryMirror.py -c buster.cfg  -fetch
+$RMPATH/RepositoryMirror.py -c buster-updates.cfg  -fetch
+$RMPATH/RepositoryMirror.py -c buster-updates-security.cfg  -fetch
