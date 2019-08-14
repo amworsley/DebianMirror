@@ -263,8 +263,8 @@ Dictionaries:
         '''
         pkg = rel.otherFiles[pname]
         if verbose:
-            print('checkRelEntryFile(rel=%s comp=%s arch=%s size=%s, md5sum=%s)'
-                % (rel.name, pkg.comp, pkg.arch, pkg.size, pkg.md5sum))
+            print('checkRelEntryFile(rel=%s comp=%s arch=%s size=%s, hash(%s)=%s)'
+                % (rel.name, pkg.comp, pkg.arch, pkg.size, rel.hashtype, pkg.hash))
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
@@ -707,6 +707,8 @@ Holds summary of a Release file including:
                 print("skipping - other hashes: ", w[0][0:-1])
                 break
             if len(w) > 2 and 'Packages' in w[2]:
+                if int(w[1]) == 0:
+                    continue
                 f = w[2]
                 (comp, arch, ctype) = PkgFile.parsePfile(f)
                 if ctype == 'gzip' \
@@ -717,10 +719,13 @@ Holds summary of a Release file including:
                         print("Grab package %s" % (f))
                 continue
             if len(w) > 2 and 'Translation' in w[2]:
+                if int(w[1]) == 0:
+                    continue
                 f = w[2]
                 (comp, arch, bzctype) = PkgFile.parsePfile(f)
                 if comp in RepositoryMirror.components \
-                    and arch == 'Translation' and f.endswith('-en.bz2') :
+                    and arch == 'Translation' and (f.endswith('-en')
+                        or f.endswith('-en.xz')):
                     self.otherFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                     if verbose:
                         print("Grab Translation %s" % (f))
