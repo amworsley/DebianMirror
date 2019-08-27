@@ -273,13 +273,14 @@ Dictionaries:
         else:
             hash = None
         if not cfile.check(size=pkg.size, hash=hash, type=rel.hashtype):
+            if verbose:
+                print("checkRelEntryFile(path=%s url=%s) - Missing or not matching" % (path, url))
             if update:
-                try:
-                    cfile.fetch()
+                if cfile.fetch():
                     pfile = cfile.tfile
                     pkg.modified = True
                     pkg.missing = False
-                except:
+                else:
                     pkg.missing = True
             else:
                 pkg.missing = True
@@ -725,7 +726,7 @@ Holds summary of a Release file including:
                 (comp, arch, bzctype) = PkgFile.parsePfile(f)
                 if comp in RepositoryMirror.components \
                     and arch == 'Translation' and (f.endswith('-en')
-                        or f.endswith('-en.xz')):
+                        or f.endswith('-en.bz2') or f.endswith('-en.xz')):
                     self.otherFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                     if verbose:
                         print("Grab Translation %s" % (f))
