@@ -1,16 +1,24 @@
 #! /bin/bash
 
+# Hardcoded defaults Put overrides configuration into /etc/RepositoryMirror/RM.sh
 # Directory of RepositoryMirror 
 RM=/movies3/deb-mirror
 # Path to RepositoryMirror.py script
 RMPATH=.
-SCRIPT=$RM/RepositoryMirror.py
+#SCRIPT=$RM/RepositoryMirror.py
+SCRIPT=/usr/local/bin/RepositoryMirror.py
 
 # Default configuration files
 #DCONFIGS=( jessie.cfg jessie-updates.cfg jessie-updates-security.cfg )
 DCONFIGS=( stretch.cfg stretch-updates.cfg stretch-updates-security.cfg
         buster.cfg buster-updates.cfg buster-updates-security.cfg )
 OPTS=""
+
+# Put customisation configuration into DEF_FILE
+DEF_FILE=/etc/RepositoryMirror/RM-defs.sh
+if [ -e $DEF_FILE ]; then
+    . $DEF_FILE
+fi
 
 usage()
 {
@@ -74,7 +82,7 @@ $DR cd $RM
 for cfg in ${CONFIGS[@]}; do
     echo "Updating $cfg:"
     $DR $SCRIPT -c $cfg $OPTS
-    if [ -n "$DR" ]; then
+    if [ -z "$DR" ]; then
         cd $RM
         $SCRIPT -c $cfg $OPTS
     fi
