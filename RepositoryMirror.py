@@ -1400,7 +1400,10 @@ if __name__ == '__main__':
                         print("Fetching %s - size %s" % (d.name, d.size))
                         try:
                             start = gettime()
-                            d.cfile.fetch()
+                            if not d.cfile.fetch():
+                                print("Failed to fetch %s - skipping\n", d.name)
+                                nfails += 1
+                                continue
                             d.cfile.update()
                             elapsed = gettime() - start
                             p.total_fetched += int(d.size)
