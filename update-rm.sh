@@ -31,9 +31,10 @@ usage()
    echo "-d : Run with debug mode"
    echo "-c : Run with create mode"
    echo "-f : enable fetching of packages"
+   echo "-q : only check sizes (not mdsums) - faster"
 }
 
-while getopts 'nxhvdcf' argv
+while getopts 'nxhvdcfq' argv
 do
     case $argv in
     n)
@@ -64,6 +65,10 @@ do
     f)
         echo "fetching packages"
         OPTS="$OPTS -fetch"
+    ;;
+    q)
+        echo "Only check sizes (quicker)"
+        OPTS="$OPTS -only-pkgs-size"
     ;;
     esac
 done
