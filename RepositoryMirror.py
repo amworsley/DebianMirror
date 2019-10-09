@@ -28,6 +28,7 @@ extra_verbose = False
 dry_run = False
 very_dry_run = False
 check_hash = True
+debug = 3
 
 os.umask(0o22)
 
@@ -79,6 +80,29 @@ def checkFile(file, size=None, hash=None, type='MD5Sum'):
 
     except OSError:
         return False
+
+class RMItem:
+    ''' Repository Item - collects items which can be be stored in multiple versions into 
+    one object. e.g. contrib/Contents-amd64.gz and contrib/Contents-amd64 are the same RMItem
+    but will have one file entry for each of them'''
+
+    def __init__(self, name, f=None):
+        ''' Create a entry with given optional file entry'''
+        self.name = name
+        if f:
+            self.items = [f]
+        else:
+            self.items = []
+        self.present = None # package item that is present
+        global debug
+        if debug > 1:
+            print("RMItem(name=%s, f=%s) created" % (name, repr(f)))
+
+    def add(self, f):
+        self.items.append(f)
+        global debug
+        if debug > 1:
+            print("RMItem(name=%s) add %s" % (self.name, repr(f)))
 
 class RepositoryMirror:
     ''' Debian Repository Mirroror - check state and optionally update
@@ -297,12 +321,12 @@ Dictionaries:
                 print("Release entry file (path=%s url=%s) - missing" % (path, url))
         return pkg
 
-    def checkPackage(self, rel, pname, update=True):
+    def checkPackage(self, rel, pkg, update=True):
         '''
-        Check the Package file pname on the local mirror and it's debian packages
+        Check the Package file pkg on the local mirror and it's debian packages
         '''
 
-        pkg = rel.pkgFiles[pname]
+        #pkg = rel.pkgFiles[pname]
         if verbose:
             print('checkPackage(rel=%s comp=%s arch=%s size=%s, hash(%s)=%s)'
                 % (rel.name, pkg.comp, pkg.arch, pkg.size, rel.hashtype, pkg.hash))
@@ -338,13 +362,10 @@ Dictionaries:
             pkg.missing = False
 
         if pkg.missing:
-            print(' Warning: %s - package file %s missing' % (rel.name, pname))
+            print(' Warning: %s - package file %s missing' % (rel.name, pkg.name))
             if verbose:
                 print("package file (path=%s url=%s) - missing" % (path, url))
             return pkg
-        if verbose:
-            print("processing Package file %s" % pfile)
-        pkg.rdPkgFile(pfile)
         return pkg
 
     def skeletonCheck(self, create=False):
@@ -446,25 +467,13 @@ the Mirror's release details from the source repository
                 continue
             if args.verbose:
                 print('Examining release file %s (%s)' % (r.name, r.cfile.ofile))
-            for p in r.pkgFiles:
+            for i in r.pkgItems.values():
+                print("i=%s"% repr(i))
                 if args.verbose:
-                    print('Examining pkg file %s ' % (p))
-                pkg = self.checkPackage(r, p, update)
-                if pkg.missing:
-                    if update:
-                        pkg.cfile.update()
-                    self.updated = True
-                    self.missing = False
-                    cnt += 1
-                    continue
-                if update and pkg.modified:
-                    self.updated = True
-                    pkg.cfile.update()
-                if pkg.total_missing > 0:
-                    self.updated = True
-                    missing += pkg.total_missing
-                cnt += pkg.cnt
-                print('Package %s - cnt %d missing %d' % (pkg.name, pkg.cnt, pkg.total_missing))
+                    print('Examining pkg item %s ' % (i.name))
+                r.checkPackageItem(i, update)
+                if debug > 2:
+                    print('Package item %s - %d entries' % (i.name, len(i.items)))
             for o in r.otherFiles:
                 if args.verbose:
                     print('Examining other file %s ' % (o))
@@ -637,6 +646,7 @@ Holds summary of a Release file including:
    name - Release name
    info - dict of parameters from head of release file
    pkgFiles - dict of PkgFile index by pkgfile names matching RepositoryMirror's parameters
+   rItems - dict of entries index'ed by file name with suffix removed
     '''
 
     def __init__(self, rep, name, rfile, sig_cfile):
@@ -644,7 +654,8 @@ Holds summary of a Release file including:
         rep - Repository Mirror
         name - Distribution/Release Name
         rfile - full path to Release file
-        info - dict of Relase file fields (indexed by field)
+        info - dict of Release file fields (indexed by field)
+        pkgItems - dict of RMItem
         '''
 
         self.repMirror = rep
@@ -652,6 +663,7 @@ Holds summary of a Release file including:
         self.name = name
         self.sig = sig_cfile
         self.info = {}
+        self.pkgItems = {}
         self.pkgFiles = {}
         self.otherFiles = {}
         self.changed = False
@@ -712,12 +724,23 @@ Holds summary of a Release file including:
                     continue
                 f = w[2]
                 (comp, arch, ctype) = PkgFile.parsePfile(f)
-                if ctype == 'gzip' \
-                    and comp in RepositoryMirror.components \
-                    and arch in RepositoryMirror.architectures :
-                    self.pkgFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
-                    if verbose:
-                        print("Grab package %s" % (f))
+                if comp not in RepositoryMirror.components:
+                    continue
+                if arch not in RepositoryMirror.architectures:
+                    continue
+                pf = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
+                nlist = f.split('.')
+                n = nlist[0]
+                if n in self.pkgItems:
+                    item = self.pkgItems[n]
+                    item.add(pf)
+                else:
+                    item = RMItem(n, pf)
+                    self.pkgItems[n] = item
+                #if ctype == 'gzip':
+                #self.pkgFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
+                if verbose:
+                    print("Tracking package file %s" % (f))
                 continue
             if len(w) > 2 and 'Translation' in w[2]:
                 if int(w[1]) == 0:
@@ -769,6 +792,61 @@ Holds summary of a Release file including:
 
         if verbose:
             print("%d packages found in RelFile %s" % (len(self.pkgFiles), rfile))
+        global debug
+        if debug > 2:
+            print("RelFile(%s rfile=%s hashtype=%s %d pkgItems %d pkgFiles %d otherFiles)" % (
+                self.name, self.rfile, self.hashtype, len(self.pkgItems),
+                len(self.pkgFiles), len(self.otherFiles)))
+
+    def checkPackageItem(self, pi, update):
+        ''' Check through all listed items and compare with files present
+        If update synchronise the files so at least one file is present
+        obsolete files are removed. If not updating just compute what deletes/updates
+        and needed to synchronise'''
+        # Search through items to find first any present
+        rep = self.repMirror
+        for pkg in pi.items:
+            if pi.present:
+                rep.checkPackage(self, pkg, False)
+            else:
+                rep.checkPackage(self, pkg, update)
+                if pkg.modified:
+                    rep.updated = True
+                if not pkg.missing:
+                    pi.present = pkg
+        if not pi.present:
+            return
+        if False:
+            if have:
+                if pkg.missing:
+                    continue
+                if pkg.modified:
+                    if args.verbose:
+                        print('Deleting obsolete pkg file %s ' % (pkg.name))
+                    pkg.delete()
+                    continue
+                continue
+            if pkg.missing:
+                if update:
+                    pkg.cfile.update()
+                rep.updated = True
+                cnt += 1
+                have = True
+                r.pkgFiles[pkg.name] = pkg
+                break
+            if update and pkg.modified:
+                self.updated = True
+                pkg.cfile.update()
+                r.pkgFiles[pkg.name] = pkg
+                have = True
+                break
+            cnt += pkg.cnt
+            if pkg.total_missing > 0:
+                rep.updated = True
+                missing += pkg.total_missing
+        if verbose:
+            print("processing Package file %s" % pfile)
+        pkg.rdPkgFile(pkg.cfile.ofile)
 
     def __repr__(self):
         return 'RelFile({!r}, {!r}, {!r}, {!r})'.format(self.repMirror, self.name, self.rfile, self.sig)
@@ -787,6 +865,10 @@ class PkgEntry():
         self.hash = hash
         self.hashtype = hashtype
         self.size = size
+        global debug
+        if debug > 2:
+            print("PkgEntry(%s fname=%s hashtype=%s size=%d)" %
+                (name, fname, hashtype, size))
 
     def getPkgEntry(fp):
         '''Return a Package Entry or None from Package file fp'''
@@ -862,10 +944,13 @@ class PkgFile():
             ctype = 'plain'
         self.ctype = ctype
         self.hash = hash
-        self.size = size
+        self.size = int(size)
         p = PkgFile.parsePfile(name)
         self.comp, self.arch = p[0], p[1]
         self.ignored = 0
+        global debug
+        if debug > 2:
+            print("PkgFile(%s ctype=%s size=%s)" % (name, ctype, size))
 
     def rdPkgFile(self, rfile):
         '''
@@ -973,7 +1058,7 @@ class PkgFile():
             elif e.endswith('.bz2'):
                 ctype = 'bzip'
             elif e.endswith('.xz'):
-                ctype = 'bzip'
+                ctype = 'xz'
             else:
                 ctype = 'plain'
             return (c, arch, ctype)
@@ -1248,7 +1333,7 @@ class TestRepositoryMirror(unittest.TestCase):
             for k in rf.info.keys():
                 print('%s - %s' % (k, rf.info[k]))
 
-        print("Reading Release file %s : %d Package files" % (r, len(rf.pkgFiles)))
+        print("Reading Release file %s : %d Package files" % (r, len(rf.pkgItems)))
 
     def test_PkgFile(self):
         if TestRepositoryMirror.v: print("Package File Tests")
@@ -1330,6 +1415,9 @@ if __name__ == '__main__':
             % (repM.repository, repM.lmirror))
         sys.exit(1)
     if repM.checkState(args.update) == False:
+# For all the release files present read, possibly update
+# For all the packages file present in a release - read and possibly update
+# For all the .deb (packages) listed check if present and correct size/checksums
         for r in repM.relfiles.values():
             if r.present:
                 print("Release %s" % r)
@@ -1381,15 +1469,16 @@ if __name__ == '__main__':
                 r.sig.update()
             print("Fetching Release %s" % r)
             if args.verbose:
-                print("%d package files:" % len(r.pkgFiles))
-            for p in r.pkgFiles.values():
+                print("%d package files:" % len(r.pkgItems))
+            for pi in r.pkgItems.values():
                 if args.timeout and gettime() >= args.timeout:
-                    print("Time out expired skipping Package", p.name," ...")
+                    print("Time out expired skipping Package", pi.name," ...")
                     break
-                print("Checking package %s for missing debs" % (p.cfile.ofile))
-                if p.missing:
-                    print("Skip missing package %s" % (p.cfile.ofile))
+                print("Checking package %s for missing debs" % (pi.name))
+                if not pi.present:
+                    print("Skip missing package %s" % (pi.name))
                     continue
+                p = pi.present
                 for d in p.pkgs.values():
                     if args.timeout and gettime() >= args.timeout:
                         print("Time out expired skipping deb " + d.name + " ...")

@@ -82,10 +82,11 @@ else
     CONFIGS=( "$@" )
 fi
 
+echo "Running configuration files in $RM"
 $DR cd $RM
 
 for cfg in ${CONFIGS[@]}; do
-    echo "Updating $cfg:"
+    echo "Configuration $cfg:"
     $DR $SCRIPT -c $cfg $OPTS
     if [ -z "$DR" ]; then
         cd $RM
