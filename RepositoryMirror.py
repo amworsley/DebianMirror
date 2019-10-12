@@ -28,7 +28,7 @@ extra_verbose = False
 dry_run = False
 very_dry_run = False
 check_hash = True
-debug = 3
+debug = 0
 
 os.umask(0o22)
 
@@ -47,15 +47,20 @@ def checkFile(file, size=None, hash=None, type='MD5Sum'):
     If None is given that field is NOT checked
     '''
     try:
+        global debug
+        if debug > 2:
+            print("checkFile(%s, size=%s, hash=%s, type=%s)" %
+                (file, size, str(hash), type))
         if not os.access(file, os.R_OK):
             if verbose:
                 print('Missing file - %s' % file)
             return False
         if size != None and int(size) != os.path.getsize(file):
+            if verbose:
+                print('file %s size=%d, expected  %d' %
+                    (file, os.path.getsize(file), int(size)))
             return False
 
-        #print("checkFile(%s, size=%s, hash=%s, type=%s)" %
-        #    (file, size, str(hash), type))
         if hash == None: return True
 
         if type == None or type == 'MD5Sum':
@@ -73,12 +78,20 @@ def checkFile(file, size=None, hash=None, type='MD5Sum'):
                     break
                 m.update(bof)
             if hash != m.hexdigest():
-                print("checkFile(hash=%s, type=%s) != %s - %s"
-                    % (hash, str(type), m.hexdigest(), file))
+                if verbose:
+                    print("file %s hash=%s type=%s != %s - %s"
+                        % (file, hash, str(type), m.hexdigest()))
                 return False
             return True
 
-    except OSError:
+    except OSError as e:
+        if verbose:
+            print("file %s exception=%s" % (file, repr(e)))
+        return False
+    except Exception as e:
+        print("Exception %s " % repr(e))
+        import traceback, sys
+        traceback.print_stack(file=sys.stdout)
         return False
 
 class RMItem:
@@ -286,7 +299,8 @@ Dictionaries:
         Check the Release Entry file pname on the local mirror
         '''
         pkg = rel.otherFiles[pname]
-        if verbose:
+        pkg.modified = False
+        if debug >= 1:
             print('checkRelEntryFile(rel=%s comp=%s arch=%s size=%s, hash(%s)=%s)'
                 % (rel.name, pkg.comp, pkg.arch, pkg.size, rel.hashtype, pkg.hash))
         path = self.getPackagePath(rel.name, pkg)
@@ -302,8 +316,15 @@ Dictionaries:
             if update:
                 if cfile.fetch():
                     pfile = cfile.tfile
-                    pkg.modified = True
-                    pkg.missing = False
+                    if checkFile(pfile, size=pkg.size, hash=hash, type=rel.hashtype):
+                        pkg.missing = False
+                        pkg.modified = True
+                        cfile.update()
+                        pfile = cfile.ofile
+                        print("checkRelEntryFile file %s updated" % pkg.name)
+                    else:
+                        print("checkRelEntryFile updated file %s doesn't match" % pkg.name)
+                        pkg.missing = True
                 else:
                     pkg.missing = True
             else:
@@ -312,7 +333,6 @@ Dictionaries:
             if verbose:
                 print("checkRelEntryFile(path=%s url=%s) - ok" % (path, url))
             pfile = cfile.ofile
-            pkg.modified = False
             pkg.missing = False
 
         if pkg.missing:
@@ -343,15 +363,20 @@ Dictionaries:
                     cfile.fetch()
                     pfile = cfile.tfile
                     pkg.modified = True
-                    if checkFile(pfile, size=pkg.size, hash=hash, hashtype=rel.hashtype):
+                    if checkFile(pfile, size=pkg.size, hash=hash, type=rel.hashtype):
                         pkg.missing = False
                         cfile.update()
                         pfile = cfile.ofile
+                        print("Package file %s updated" % pkg.name)
                     else:
                         print("Updated Package file %s doesn't match" % pkg.name)
                         pkg.missing = True
-                except:
+                except Exception as e:
                     pkg.missing = True
+                    print("Exception %s " % repr(e))
+                    import traceback, sys
+                    traceback.print_stack(file=sys.stdout)
+
             else:
                 pkg.missing = True
         else:
@@ -361,10 +386,9 @@ Dictionaries:
             pkg.modified = False
             pkg.missing = False
 
-        if pkg.missing:
-            print(' Warning: %s - package file %s missing' % (rel.name, pkg.name))
-            if verbose:
-                print("package file (path=%s url=%s) - missing" % (path, url))
+        if verbose:
+            if pkg.missing:
+                print(" Warning missing package file %s url=%s" % (path, url))
             return pkg
         return pkg
 
@@ -468,7 +492,6 @@ the Mirror's release details from the source repository
             if args.verbose:
                 print('Examining release file %s (%s)' % (r.name, r.cfile.ofile))
             for i in r.pkgItems.values():
-                print("i=%s"% repr(i))
                 if args.verbose:
                     print('Examining pkg item %s ' % (i.name))
                 r.checkPackageItem(i, update)
@@ -814,6 +837,7 @@ Holds summary of a Release file including:
                     rep.updated = True
                 if not pkg.missing:
                     pi.present = pkg
+                    break
         if not pi.present:
             return
         if False:
@@ -845,7 +869,7 @@ Holds summary of a Release file including:
                 rep.updated = True
                 missing += pkg.total_missing
         if verbose:
-            print("processing Package file %s" % pfile)
+            print("processing Package file %s" % pi.name)
         pkg.rdPkgFile(pkg.cfile.ofile)
 
     def __repr__(self):
@@ -867,7 +891,7 @@ class PkgEntry():
         self.size = size
         global debug
         if debug > 2:
-            print("PkgEntry(%s fname=%s hashtype=%s size=%d)" %
+            print("PkgEntry(%s fname=%s hashtype=%s size=%s)" %
                 (name, fname, hashtype, size))
 
     def getPkgEntry(fp):
@@ -1101,7 +1125,7 @@ class CacheFile:
     def fetch(self, tfile=None):
         ''' fetch a fresh copy of the file into tfile '''
 
-        global args
+        global args, debug
 
         if self.fetched:
             return True
@@ -1136,6 +1160,8 @@ class CacheFile:
                         os.unlink(self.tfile)
                     os.link(req.selector, self.tfile)
                     self.fetched = True
+                    if debug >= 2:
+                        print("Fetched %s -> %s" % (self.url, self.tfile))
                     return True
                 #if args.verbose:
                 #    print("shutil.copy(%s, %s)" % (req.selector, self.tfile))
@@ -1143,6 +1169,8 @@ class CacheFile:
                 os.chmod(self.tfile, stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
                 shutil.copy(req.selector, self.tfile)
                 self.fetched = True
+                if debug >= 2:
+                    print("Fetched %s -> %s" % (self.url, self.tfile))
                 return True
             uf = urllib.request.urlopen(self.url)
 
@@ -1154,6 +1182,8 @@ class CacheFile:
             uf.close()
             of.close()
             self.fetched = True
+            if debug >= 2:
+                print("Fetched %s -> %s" % (self.url, self.tfile))
             return True
 
         except urllib.error.HTTPError:
