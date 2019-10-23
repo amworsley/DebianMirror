@@ -464,6 +464,8 @@ of distribution and releaseCacheFile lists. If update is true will refresh
 the Mirror's release details from the source repository
         '''
         global args
+        if debug > 0:
+            print("checkState(%s, update=%s)" % (repr(self), str(update)))
         cnt = 0 # no. of changed files
         missing = 0 # missing bytes of files
         self.missing = False
@@ -834,6 +836,9 @@ Holds summary of a Release file including:
         obsolete files are removed. If not updating just compute what deletes/updates
         and needed to synchronise'''
         # Search through items to find first any present
+        if debug > 0:
+            print("checkPackageItem(%s, pi=%s, update=%s)" %
+                (repr(self), repr(pi), str(update)))
         rep = self.repMirror
         for pkg in pi.items:
             if pi.present:
@@ -847,34 +852,6 @@ Holds summary of a Release file including:
                     break
         if not pi.present:
             return
-        if False:
-            if have:
-                if pkg.missing:
-                    continue
-                if pkg.modified:
-                    if args.verbose:
-                        print('Deleting obsolete pkg file %s ' % (pkg.name))
-                    pkg.delete()
-                    continue
-                continue
-            if pkg.missing:
-                if update:
-                    pkg.cfile.update()
-                rep.updated = True
-                cnt += 1
-                have = True
-                r.pkgFiles[pkg.name] = pkg
-                break
-            if update and pkg.modified:
-                self.updated = True
-                pkg.cfile.update()
-                r.pkgFiles[pkg.name] = pkg
-                have = True
-                break
-            cnt += pkg.cnt
-            if pkg.total_missing > 0:
-                rep.updated = True
-                missing += pkg.total_missing
         if verbose:
             print("processing Package file %s" % pi.name)
         pkg.rdPkgFile(pkg.cfile.ofile)
@@ -891,11 +868,14 @@ Holds summary of a Release file including:
             ' Suite: {!s}\n Codename: {!s}\n Version: {!s}\n Date: {!s}\n'.format(self.suite, self.codename, self.version, self.date) + \
             ' Components: {!r}\n Architectures: {!r}\n Description: {!s}'.format(self.components, self.archs, self.desc)
 
+#Note: Can have two packages with same name but different architecture.
+# e.g. linux-source-3.16 amd64 + all
 class PkgEntry():
     ''' Package file entry - usually detailing a .deb file '''
-    def __init__(self, name, fname, hash, hashtype, size):
+    def __init__(self, name, arch, fname, hash, hashtype, size):
         ''' Package file entry defining a .deb file '''
         self.name = name
+        self.arch = arch
         self.fname = fname
         self.hash = hash
         self.hashtype = hashtype
@@ -913,14 +893,20 @@ class PkgEntry():
                     return None
 
             #print("getPkgEntry() = %s" % repr(p))
+# Warning: a binary-<arch>/Packages file can contain all architecture entries!
+# This confused me to think perhaps we can have two packages with same name but
+# different architectures!  # e.g. linux-source-3.16 - amd64 and all
+# But not necessarily...
+            n = p['Package']
+            a = p['Architecture']
             if check_hash:
                 if 'MD5sum' in p:
-                    return PkgEntry(p['Package'], p['Filename'], p['MD5sum'], 'MD5Sum', p['Size'])
+                    return PkgEntry(n, a, p['Filename'], p['MD5sum'], 'MD5Sum', p['Size'])
                 elif 'SHA256' in p:
-                    return PkgEntry(p['Package'], p['Filename'], p['SHA256'], 'SHA256', p['Size'])
+                    return PkgEntry(n, a, p['Filename'], p['SHA256'], 'SHA256', p['Size'])
                 else:
                     raise Exception
-            return PkgEntry(p['Package'], p['Filename'], None, 'MD5Sum', p['Size'])
+            return PkgEntry(n, a, p['Filename'], None, 'MD5Sum', p['Size'])
 
         except OSError as e:
             print('getPkgEntry() failed: %s' % e.strerror)
@@ -994,6 +980,8 @@ class PkgFile():
         '''
 
         global args
+        if debug > 0:
+            print("rdPkgFile(%s, rfile=%s)" % (repr(self), str(rfile)))
         self.total_missing = 0
         if self.ctype.endswith('bz2'):
             fp = bz2.BZ2File(rfile, 'rt')
@@ -1015,6 +1003,11 @@ class PkgFile():
             p = PkgEntry.getPkgEntry(fp)
             if p == None:
                 break;
+            if p.arch != self.arch:
+                if args.extra_verbose:
+                    print("Skipping %s missing %s arch in %s arch package"
+                        % (p.name, p.arch, self.arch))
+                continue
             if args.verbose:
                 if st_time < gettime():
                     st_time = gettime() + 60
@@ -1031,7 +1024,7 @@ class PkgFile():
             u = self.repMirror.getDebURL(fn)
             s = int(p.size)
             if extra_verbose:
-                print("rdPkgFile() Want ", p.name, " ofile=", f)
+                print("rdPkgFile() Want ", p.name, " arch=", p.arch, " ofile=", f)
             cfile = CacheFile(u, ofile=f)
             if args.onlypkgs:
                 hash = None

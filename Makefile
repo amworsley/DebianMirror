@@ -28,6 +28,7 @@ diff-update-rm.sh: $(INSTALL_PATH)/update-rm.sh update-rm.sh
 diff: diff-RepositoryMirror.py diff-update-rm.sh
 
 # Check fast local mirror
+TF := azza/pool/main/l//linux-latest/linux-source_3.16+63+deb8u2_all.deb
 azzatest: azza.cfg
 	@if [ -e azza-updates ]; then \
 	    @echo; echo " ** Cleaning old test away"; \
@@ -43,9 +44,14 @@ azzatest: azza.cfg
 	./RepositoryMirror.py -c azza.cfg -fetch
 	@echo; echo " ** Check azza repository after sync"
 	./RepositoryMirror.py -c azza.cfg
-	@echo; echo " ** Remove item and update"
-	rm azza/pool/main/l//linux-latest/linux-source_3.16+63+deb8u2_all.de
+	@echo; echo " ** Remove test item and update"
+	rm $(TF)
 	./RepositoryMirror.py -c azza.cfg -fetch
+	@if [ -r $(TF) ]; then \
+	    echo; echo " ** Missing item retrieved!"; \
+	else \
+	    echo; echo " ** Missing NOT updated failed..."; \
+	fi
 
 stretchtest: stretchtest.cfg
 	rm -rf stretchtest
