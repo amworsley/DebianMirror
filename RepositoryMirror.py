@@ -18,6 +18,7 @@ import gzip
 import shutil
 import hashlib
 import stat
+import subprocess
 #import time
 from configparser import ConfigParser
 # Handle python version dependancies...
@@ -493,10 +494,12 @@ the Mirror's release details from the source repository
                 print('Examining release file %s (%s)' % (r.name, r.cfile.ofile))
             for i in r.pkgItems.values():
                 if args.verbose:
-                    print('Examining pkg item %s ' % (i.name))
+                    print('Examining Package %s ' % (i.name))
                 r.checkPackageItem(i, update)
                 if debug > 2:
-                    print('Package item %s - %d entries' % (i.name, len(i.items)))
+                    print('Package %s - %d entries' % (i.name, len(i.items)))
+            missing += r.total_missing
+            self.cnt += r.deb_missing
             for o in r.otherFiles:
                 if args.verbose:
                     print('Examining other file %s ' % (o))
@@ -670,6 +673,8 @@ Holds summary of a Release file including:
    info - dict of parameters from head of release file
    pkgFiles - dict of PkgFile index by pkgfile names matching RepositoryMirror's parameters
    rItems - dict of entries index'ed by file name with suffix removed
+   deb_missing - deb files missing
+   total_missing - total bytes of missing files
     '''
 
     def __init__(self, rep, name, rfile, sig_cfile):
@@ -692,6 +697,8 @@ Holds summary of a Release file including:
         self.changed = False
         self.present = False
         self.hashtype = 'MD5Sum'
+        self.deb_missing = 0
+        self.total_missing = 0
         if name in rep.debList:
             self.deblist = rep.debList[name]
         else:
@@ -871,6 +878,10 @@ Holds summary of a Release file including:
         if verbose:
             print("processing Package file %s" % pi.name)
         pkg.rdPkgFile(pkg.cfile.ofile)
+        if pkg.cnt > 0:
+            print(pi.name, " missing ", pkg.cnt)
+        self.deb_missing += pkg.cnt
+        self.total_missing += pkg.total_missing
 
     def __repr__(self):
         return 'RelFile({!r}, {!r}, {!r}, {!r})'.format(self.repMirror, self.name, self.rfile, self.sig)
@@ -921,7 +932,7 @@ class PkgEntry():
         p = {}
         k, v = None, ''
         for l in fp:
-            l = l.decode()
+            #l = l.decode()
             # Check for end of Package definition
             if len(l.lstrip()) == 0:
                 if k:
@@ -985,9 +996,9 @@ class PkgFile():
         global args
         self.total_missing = 0
         if self.ctype.endswith('bz2'):
-            fp = bz2.BZ2File(rfile, 'r')
+            fp = bz2.BZ2File(rfile, 'rt')
         elif self.ctype.endswith('gzip'):
-            fp = gzip.open(rfile, 'r')
+            fp = gzip.open(rfile, 'rt')
         else:
             fp = open(rfile, 'rt')
 
@@ -1047,8 +1058,8 @@ class PkgFile():
             return
         if self.total_missing > 0:
             if  self.total_missing < 1024*1024:
-                sz_str = "%d" % self.total_missing
-            if  self.total_missing < 1024*1024*1024:
+                sz_str = "%d bytes" % self.total_missing
+            elif  self.total_missing < 1024*1024*1024:
                 sz_str = "%dMb" % (self.total_missing/(1024*1024))
             else:
                 sz_str = "%dGb" % (self.total_missing/(1024*1024*1024))
@@ -1173,6 +1184,9 @@ class CacheFile:
                     print("Fetched %s -> %s" % (self.url, self.tfile))
                 return True
             uf = urllib.request.urlopen(self.url)
+            content_type = uf.getheader('Content-Type')
+            if debug >= 2:
+                print("Response.Content-Type", repr(uf.getheader('Content-Type')))
 
             while True:
                 b = uf.read(CacheFile.BUFSIZE)
@@ -1182,16 +1196,36 @@ class CacheFile:
             uf.close()
             of.close()
             self.fetched = True
+            url = str(self.url)
+            if debug >= 2:
+                print("content-type=", content_type, " url=", url)
+                print("tfile=", self.tfile)
+            if content_type == None:
+                pass
+            elif content_type.endswith("x-gzip") and not url.endswith(".gz"):
+                print("File sent gzipped - gunzipping")
+                gzf = self.tfile + ".gz"
+                os.rename(self.tfile, gzf)
+                if subprocess.call(["gunzip", gzf]):
+                    print(self.url, ": returned bad gzipp'ed file ", gzf)
+                    return False
+            elif content_type.endswith("x-bzip2") and not url.endswith(".bz2"):
+                print("File sent bzip2'ed - bunzipping")
+                bzf = self.tfile + ".bz2"
+                os.rename(self.tfile, bzf)
+                if subprocess.call(["bunzip2", bzf]):
+                    print(self.url, ": returned bad bzipp'ed file ", bzf)
+                    return False
             if debug >= 2:
                 print("Fetched %s -> %s" % (self.url, self.tfile))
             return True
 
-        except urllib.error.HTTPError:
-            print("urllib.error.HTTPError:", self.url)
+        except urllib.error.HTTPError as e:
+            print(self.url, ":", str(e))
             return False
 
-        except OSError:
-            print("OSError:", tfile)
+        except OSError as e:
+            print(tfile, ",", str(e))
             return False
 
     def check(self, size=None, hash=None, type=None):
@@ -1444,13 +1478,14 @@ if __name__ == '__main__':
         print("Unable to set up repository mirror for %s at %s"
             % (repM.repository, repM.lmirror))
         sys.exit(1)
-    if repM.checkState(args.update) == False:
+    if repM.checkState(args.update) == False and repM.cnt == 0:
 # For all the release files present read, possibly update
 # For all the packages file present in a release - read and possibly update
 # For all the .deb (packages) listed check if present and correct size/checksums
         for r in repM.relfiles.values():
             if r.present:
-                print("Release %s" % r)
+                print("Release %s - missing %d" % (r, r.deb_missing))
+                repM.cnt += r.deb_missing
             else:
                 print('Skipping Release %s : Release file %s is missing' % (r.name, r.cfile.ofile))
         if repM.missing:
@@ -1506,21 +1541,21 @@ if __name__ == '__main__':
                     break
                 print("Checking package %s for missing debs" % (pi.name))
                 if not pi.present:
-                    print("Skip missing package %s" % (pi.name))
+                    print("  Skip missing package %s" % (pi.name))
                     continue
                 p = pi.present
                 for d in p.pkgs.values():
                     if args.timeout and gettime() >= args.timeout:
-                        print("Time out expired skipping deb " + d.name + " ...")
+                        print("  Time out expired skipping deb " + d.name + " ...")
                         break
                     p.total_fetched = 0
                     p.last_report = p.fetch_start = gettime()
                     if d.missing:
-                        print("Fetching %s - size %s" % (d.name, d.size))
+                        print("  Fetching %s - size %s" % (d.name, d.size))
                         try:
                             start = gettime()
                             if not d.cfile.fetch():
-                                print("Failed to fetch %s - skipping\n", d.name)
+                                print("  Failed to fetch %s - skipping\n", d.name)
                                 nfails += 1
                                 continue
                             d.cfile.update()
@@ -1528,19 +1563,19 @@ if __name__ == '__main__':
                             p.total_fetched += int(d.size)
                             if start - p.last_report > repM.report_time:
                                 av_speed = p.total_fetched/(start - p.fetch_start)
-                                print( "%s %s %s %3.1f % fetched Estimating %d seconds to complete" %
+                                print("  %s %s %s %3.1f % fetched Estimating %d seconds to complete" %
                                     (p.name, p.arch, p.comp, 100*p.total_fetched/p.total_missing, (p.total_missing - p.total_fetched)/av_speed) )
                             elif elapsed > min_time:
                                 speed = (8*int(d.size)/elapsed)/1000.
                                 if speed < 2000.0:
-                                    print("Downloaded in %.1f seconds = %.3f kbit/s" % (elapsed, speed))
+                                    print("  Downloaded in %.1f seconds = %.3f kbit/s" % (elapsed, speed))
                                 elif speed < 2000000.0:
-                                    print("Downloaded in %.3f seconds = %.3f Mbit/s" % (elapsed, speed/1000.))
+                                    print("  Downloaded in %.3f seconds = %.3f Mbit/s" % (elapsed, speed/1000.))
                                 else:
-                                    print("Downloaded in %.6f seconds = %.3f Gbit/s" % (elapsed, speed/1000000.))
+                                    print("  Downloaded in %.6f seconds = %.3f Gbit/s" % (elapsed, speed/1000000.))
 
                         except OSError:
-                            print("Failed to fetch %s" % d.name)
+                            print("  Failed to fetch %s" % d.name)
                             nfails += 1
 
     if nfails == 0:

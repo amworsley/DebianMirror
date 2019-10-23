@@ -29,12 +29,23 @@ diff: diff-RepositoryMirror.py diff-update-rm.sh
 
 # Check fast local mirror
 azzatest: azza.cfg
-	rm -rf azza-updates
+	@if [ -e azza-updates ]; then \
+	    @echo; echo " ** Cleaning old test away"; \
+	    rm -rf azza-updates; \
+	fi
+	@echo; echo " ** Summary of azza.cfg configuration"
 	./RepositoryMirror.py -c azza.cfg -info
+	@echo; echo " ** Create local azza repository"
 	./RepositoryMirror.py -c azza.cfg -create
+	@echo; echo " ** Check local azza repository"
 	./RepositoryMirror.py -c azza.cfg
+	@echo; echo " ** Update azza repository"
 	./RepositoryMirror.py -c azza.cfg -fetch
+	@echo; echo " ** Check azza repository after sync"
 	./RepositoryMirror.py -c azza.cfg
+	@echo; echo " ** Remove item and update"
+	rm azza/pool/main/l//linux-latest/linux-source_3.16+63+deb8u2_all.de
+	./RepositoryMirror.py -c azza.cfg -fetch
 
 stretchtest: stretchtest.cfg
 	rm -rf stretchtest
