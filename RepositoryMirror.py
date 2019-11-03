@@ -33,6 +33,14 @@ debug = 0
 
 os.umask(0o22)
 
+# Enable debug for detailed tracing
+# Typical path from reading Release file and then the Packages files to checking
+# all the mentioned .debs are present is
+# RepositoryMirror.checkState()
+#  - reads in the contents into r.pkgItems dict of RMItem
+#  on each RMItem
+#    => RelFile.checkPackageItem()
+#    rdPkgFile()
 
 version = version.split()[0]
 
