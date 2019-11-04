@@ -768,6 +768,10 @@ Holds summary of a Release file including:
                     continue
                 if arch not in RepositoryMirror.architectures:
                     continue
+                if f.endswith('Packages.diff/Index'):
+                    if args.verbose:
+                        print('Skipping diff index: ', f)
+                    continue
                 pf = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                 nlist = f.split('.')
                 n = nlist[0]
