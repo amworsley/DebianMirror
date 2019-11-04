@@ -69,7 +69,7 @@ stretchtest: stretchtest.cfg
 	./RepositoryMirror.py -c stretchtest.cfg -fetch
 	@echo; echo " ** Check azza repository after sync"
 	./RepositoryMirror.py -c stretchtest.cfg
-	@echo; echo " ** Remove test item and update"
+	@echo; echo " ** Remove test item $(STF) and update"
 	rm $(STF)
 	./RepositoryMirror.py -c stretchtest.cfg -fetch
 	@if [ -r $(STF) ]; then \
@@ -93,6 +93,31 @@ buster-security-updates: buster-security-updates.cfg
 	./RepositoryMirror.py -c buster-security-updates.cfg
 	./RepositoryMirror.py -c buster-security-updates.cfg -fetch
 	./RepositoryMirror.py -c buster-security-updates.cfg
+
+BTF := bustertest/pool/main/e/exim4/exim4-config_4.89-2+deb9u5_all.deb
+bustertest: bustertest.cfg
+	@if [ -e bustertest ]; then \
+	    @echo; echo " ** Cleaning old test away"; \
+	    rm -rf bustertest; \
+	fi
+	@echo; echo " ** Summary of bustertest.cfg configuration"
+	./RepositoryMirror.py -c bustertest.cfg -info
+	@echo; echo " ** Create local azza repository"
+	./RepositoryMirror.py -c bustertest.cfg -create
+	@echo; echo " ** Check local azza repository"
+	./RepositoryMirror.py -c bustertest.cfg
+	@echo; echo " ** Update azza repository"
+	./RepositoryMirror.py -c bustertest.cfg -fetch
+	@echo; echo " ** Check azza repository after sync"
+	./RepositoryMirror.py -c bustertest.cfg
+	@echo; echo " ** Remove test item and update"
+	rm $(BTF)
+	./RepositoryMirror.py -c bustertest.cfg -fetch
+	@if [ -r $(STF) ]; then \
+            echo; echo " ** Missing item retrieved!"; \
+	else \
+	    echo; echo " ** Missing NOT updated failed..."; \
+	fi
 
 buster-updates: buster-updates.cfg
 	rm -rf buster-updates-test
