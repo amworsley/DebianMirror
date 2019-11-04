@@ -1,6 +1,6 @@
 PREFIX=/usr/local/
 
-.PHONY: help jessietest stretchtest bustertest
+.PHONY: help jessietest stretchtest bustertest buster-updates-test
 help:
 	@echo "targets:"
 	@echo "    tests fetch from local repository see config files for details"
@@ -78,13 +78,6 @@ stretchtest: stretchtest.cfg
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
 
-#stretchtest: stretchtest.cfg
-#	rm -rf stretchtest
-#	./RepositoryMirror.py -c stretchtest.cfg -info
-#	./RepositoryMirror.py -c stretchtest.cfg -create
-#	./RepositoryMirror.py -c stretchtest.cfg
-#	./RepositoryMirror.py -c stretchtest.cfg -fetch
-#	./RepositoryMirror.py -c stretchtest.cfg
 
 buster-security-updates: buster-security-updates.cfg
 	rm -rf buster-security-updates-test
@@ -113,19 +106,37 @@ bustertest: bustertest.cfg
 	@echo; echo " ** Remove test item and update"
 	rm $(BTF)
 	./RepositoryMirror.py -c bustertest.cfg -fetch
-	@if [ -r $(STF) ]; then \
+	@if [ -r $(BTF) ]; then \
             echo; echo " ** Missing item retrieved!"; \
 	else \
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
 
-buster-updates: buster-updates.cfg
+BUTF := buster-updates-test/pool/main/t/tzdata/tzdata_2019c-0+deb10u1_all.deb
+buster-updates-test: buster-updates-test.cfg
+	@if [ -e buster-updates-test ]; then \
+	    @echo; echo " ** Cleaning old test away"; \
+	    rm -rf buster-updates-test; \
+	fi
+	@echo; echo " ** Summary of buster-updates-test.cfg configuration"
+	./RepositoryMirror.py -c buster-updates-test.cfg -info
+	@echo; echo " ** Create local azza repository"
+	./RepositoryMirror.py -c buster-updates-test.cfg -create
+	@echo; echo " ** Check local azza repository"
+	./RepositoryMirror.py -c buster-updates-test.cfg
+	@echo; echo " ** Update azza repository"
+	./RepositoryMirror.py -c buster-updates-test.cfg -fetch
+	@echo; echo " ** Check azza repository after sync"
+	./RepositoryMirror.py -c buster-updates-test.cfg
+	@echo; echo " ** Remove test item and update"
+	rm $(BUTF)
+	./RepositoryMirror.py -c buster-updates-test.cfg -fetch
+	@if [ -r $(BUTF) ]; then \
+            echo; echo " ** Missing item retrieved!"; \
+	else \
+	    echo; echo " ** Missing NOT updated failed..."; \
+	fi
 	rm -rf buster-updates-test
-	./RepositoryMirror.py -c buster-updates.cfg -info
-	./RepositoryMirror.py -c buster-updates.cfg -create
-	./RepositoryMirror.py -c buster-updates.cfg
-	./RepositoryMirror.py -c buster-updates.cfg -fetch
-	./RepositoryMirror.py -c buster-updates.cfg
 
 smalltest: azza-50.cfg
 	echo "Testing -info"
