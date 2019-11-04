@@ -1,6 +1,6 @@
 PREFIX=/usr/local/
 
-.PHONY: help jessietest stretchtest
+.PHONY: help jessietest stretchtest bustertest
 help:
 	@echo "targets:"
 	@echo "    tests fetch from local repository see config files for details"
@@ -94,7 +94,7 @@ buster-security-updates: buster-security-updates.cfg
 	./RepositoryMirror.py -c buster-security-updates.cfg -fetch
 	./RepositoryMirror.py -c buster-security-updates.cfg
 
-BTF := bustertest/pool/main/e/exim4/exim4-config_4.89-2+deb9u5_all.deb
+BTF := bustertest/pool/main/j/java-common/default-jre_1.11-71_amd64.deb
 bustertest: bustertest.cfg
 	@if [ -e bustertest ]; then \
 	    @echo; echo " ** Cleaning old test away"; \
