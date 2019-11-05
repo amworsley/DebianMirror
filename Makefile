@@ -137,7 +137,6 @@ buster-updates-test: buster-updates-test.cfg
 	else \
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
-	rm -rf buster-updates-test
 
 BSTF := buster-security-test/pool/updates/main/f/firefox-esr/iceweasel-l10n-az_68.2.0esr-1~deb10u1_all.deb
 buster-security-test: buster-security-test.cfg
@@ -163,7 +162,6 @@ buster-security-test: buster-security-test.cfg
 	else \
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
-	rm -rf buster-security-test
 
 BETF := bullseye-test/pool/main/e/emacs/emacs-bin-common_26.1+1-4_amd64.deb
 bullseye-test: bullseye-test.cfg
@@ -189,7 +187,6 @@ bullseye-test: bullseye-test.cfg
 	else \
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
-	rm -rf bullseye-test
 
 smalltest: azza-50.cfg
 	echo "Testing -info"
