@@ -1,6 +1,7 @@
 PREFIX=/usr/local/
 
 .PHONY: help jessietest stretchtest bustertest buster-updates-test buster-security-test
+.PHONY: bullseye-test
 help:
 	@echo "targets:"
 	@echo "    tests fetch from local repository see config files for details"
@@ -163,6 +164,32 @@ buster-security-test: buster-security-test.cfg
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
 	rm -rf buster-security-test
+
+BETF := bullseye-test/pool/main/e/emacs/emacs-bin-common_26.1+1-4_amd64.deb
+bullseye-test: bullseye-test.cfg
+	@if [ -e bullseye-test ]; then \
+	    @echo; echo " ** Cleaning old test away"; \
+	    rm -rf bullseye-test; \
+	fi
+	@echo; echo " ** Summary of bullseye-test.cfg configuration"
+	./RepositoryMirror.py -c bullseye-test.cfg -info
+	@echo; echo " ** Create local azza repository"
+	./RepositoryMirror.py -c bullseye-test.cfg -create
+	@echo; echo " ** Check local azza repository"
+	./RepositoryMirror.py -c bullseye-test.cfg
+	@echo; echo " ** Update azza repository"
+	./RepositoryMirror.py -c bullseye-test.cfg -fetch
+	@echo; echo " ** Check azza repository after sync"
+	./RepositoryMirror.py -c bullseye-test.cfg
+	@echo; echo " ** Remove test item and update"
+	rm $(BETF)
+	./RepositoryMirror.py -c bullseye-test.cfg -fetch
+	@if [ -r $(BETF) ]; then \
+            echo; echo " ** Missing item retrieved!"; \
+	else \
+	    echo; echo " ** Missing NOT updated failed..."; \
+	fi
+	rm -rf bullseye-test
 
 smalltest: azza-50.cfg
 	echo "Testing -info"
