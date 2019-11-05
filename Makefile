@@ -1,6 +1,6 @@
 PREFIX=/usr/local/
 
-.PHONY: help jessietest stretchtest bustertest buster-updates-test
+.PHONY: help jessietest stretchtest bustertest buster-updates-test buster-security-test
 help:
 	@echo "targets:"
 	@echo "    tests fetch from local repository see config files for details"
@@ -137,6 +137,32 @@ buster-updates-test: buster-updates-test.cfg
 	    echo; echo " ** Missing NOT updated failed..."; \
 	fi
 	rm -rf buster-updates-test
+
+BSTF := buster-security-test/pool/updates/main/f/firefox-esr/iceweasel-l10n-az_68.2.0esr-1~deb10u1_all.deb
+buster-security-test: buster-security-test.cfg
+	@if [ -e buster-security-test ]; then \
+	    @echo; echo " ** Cleaning old test away"; \
+	    rm -rf buster-security-test; \
+	fi
+	@echo; echo " ** Summary of buster-security-test.cfg configuration"
+	./RepositoryMirror.py -c buster-security-test.cfg -info
+	@echo; echo " ** Create local azza repository"
+	./RepositoryMirror.py -c buster-security-test.cfg -create
+	@echo; echo " ** Check local azza repository"
+	./RepositoryMirror.py -c buster-security-test.cfg
+	@echo; echo " ** Update azza repository"
+	./RepositoryMirror.py -c buster-security-test.cfg -fetch
+	@echo; echo " ** Check azza repository after sync"
+	./RepositoryMirror.py -c buster-security-test.cfg
+	@echo; echo " ** Remove test item and update"
+	rm $(BSTF)
+	./RepositoryMirror.py -c buster-security-test.cfg -fetch
+	@if [ -r $(BSTF) ]; then \
+            echo; echo " ** Missing item retrieved!"; \
+	else \
+	    echo; echo " ** Missing NOT updated failed..."; \
+	fi
+	rm -rf buster-security-test
 
 smalltest: azza-50.cfg
 	echo "Testing -info"
