@@ -996,7 +996,8 @@ class PkgFile():
             print("rdPkgFile(%s, rfile=%s)" % (repr(self), str(rfile)))
         self.total_missing = 0
         if self.ctype.endswith('bz2'):
-            fp = bz2.BZ2File(rfile, 'rt')
+            fp = bz2.open(rfile, 'rt')
+            #fp = bz2.BZ2File(rfile, 'rt')
         elif self.ctype.endswith('gzip'):
             fp = gzip.open(rfile, 'rt')
         else:
