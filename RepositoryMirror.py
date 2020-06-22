@@ -1016,9 +1016,9 @@ class PkgFile():
             p = PkgEntry.getPkgEntry(fp)
             if p == None:
                 break;
-            if p.arch != self.arch:
-                if args.extra_verbose:
-                    print("Skipping %s missing %s arch in %s arch package"
+            if p.arch != self.arch and not args.any_arch_pf :
+                if args.verbose:
+                    print("Skipping %s unexpected architecture '%s' in %s package file"
                         % (p.name, p.arch, self.arch))
                 continue
             if args.verbose:
@@ -1445,6 +1445,9 @@ if __name__ == '__main__':
         help='give up after this many seconds|mins|hours|days - N[smhd] ')
     parser.add_argument('-only-pkgs-size', dest='onlypkgs', action='store_true',
         default=False, help='only check package file size')
+    parser.add_argument('-any-arch-in-package-files', dest='any_arch_pf',
+        action='store_true', default=False,
+        help='only accept <arch> packages binary-<arch> file - i.e. <all> entries skipped')
 
     args = parser.parse_args()
     verbose, dry_run, very_dry_run  = args.verbose, args.dry_run, args.very_dry_run
