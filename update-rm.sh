@@ -24,6 +24,7 @@ usage()
 {
    echo "$(basename $0): Update mirrors using RepositoryMirror.py script"
    echo ""
+   echo "-C <config> : Use <config> configuration script"
    echo "-h : Print this usage information"
    echo "-n : Dry-run print commands instead of executing them"
    echo "-x : Enabling tracing of shell script"
@@ -34,9 +35,19 @@ usage()
    echo "-q : only check sizes (not mdsums) - faster"
 }
 
-while getopts 'nxhvdcfq' argv
+while getopts 'nxhvdcfqC:' argv
 do
     case $argv in
+    C)
+       DEF_FILE="$OPTARG"
+       if [ -r $DEF_FILE ]; then
+            echo "Using $DEF_FILE configuration"
+            . $DEF_FILE
+       else
+            echo "Unable to read configuration file $DEF_FILE"
+            exit 1
+       fi
+    ;;
     n)
        echo "Dry-Run"
        DR=echo
