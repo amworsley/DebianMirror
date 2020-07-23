@@ -1227,6 +1227,9 @@ class CacheFile:
             return True
 
         except urllib.error.HTTPError as e:
+            if not args.verbose:
+                if e.code == 404:
+                    return False
             print(self.url, ":", str(e))
             return False
 
