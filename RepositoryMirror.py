@@ -377,9 +377,11 @@ Dictionaries:
                         pkg.missing = False
                         cfile.update()
                         pfile = cfile.ofile
-                        print("Package file %s updated" % pkg.name)
+                        print("Package file: %s updated" % pkg.name)
+                    elif os.path.exists(cfile.ofile):
+                        print("Package file: %s missing" % pkg.name)
                     else:
-                        print("Updated Package file %s doesn't match" % pkg.name)
+                        print("Package file %s doesn't match" % pkg.name)
                         pkg.missing = True
                 except Exception as e:
                     pkg.missing = True
