@@ -9,8 +9,10 @@ RMPATH=.
 SCRIPT=/usr/local/bin/RepositoryMirror.py
 
 # Default configuration files
-#DCONFIGS=( jessie.cfg jessie-updates.cfg jessie-updates-security.cfg )
-DCONFIGS=( stretch.cfg stretch-updates.cfg stretch-updates-security.cfg
+# Old
+# jessie.cfg jessie-updates.cfg jessie-updates-security.cfg
+#        stretch-updates-security.cfg stretch.cfg stretch-updates.cfg
+DCONFIGS=( lts-stretch.cfg lts-stretch-updates-security.cfg
         buster.cfg buster-updates.cfg buster-updates-security.cfg )
 OPTS=""
 
