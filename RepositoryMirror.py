@@ -19,6 +19,7 @@ import shutil
 import hashlib
 import stat
 import subprocess
+import errno
 #import time
 from configparser import ConfigParser
 # Handle python version dependancies...
@@ -357,8 +358,8 @@ Dictionaries:
 
         #pkg = rel.pkgFiles[pname]
         if verbose:
-            print('checkPackage(rel=%s comp=%s arch=%s size=%s, hash(%s)=%s)'
-                % (rel.name, pkg.comp, pkg.arch, pkg.size, rel.hashtype, pkg.hash))
+            print('checkPackage(pkg=%s rel=%s comp=%s arch=%s size=%s, hash(%s)=%s)'
+                % (pkg.name, rel.name, pkg.comp, pkg.arch, pkg.size, rel.hashtype, pkg.hash))
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
@@ -1060,8 +1061,6 @@ class PkgFile():
         fp.close()
         if not args.verbose and self.cnt >= 5:
             print(' .... Total %d missing debs' % self.cnt)
-        if not args.verbose:
-            return
         if self.total_missing > 0:
             if  self.total_missing < 1024*1024:
                 sz_str = "%d bytes" % self.total_missing
@@ -1234,7 +1233,14 @@ class CacheFile:
             return False
 
         except OSError as e:
-            print(tfile, ",", str(e))
+            if not args.verbose:
+                if e.errno == errno.ENOENT:
+                    return False
+            print("OSError: ", str(e))
+            return False
+
+        except Exception as e:
+            print("Exception: ", tfile, ",", str(e))
             return False
 
     def check(self, size=None, hash=None, type=None):
