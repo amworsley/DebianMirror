@@ -45,6 +45,7 @@ usage()
    echo "-M <distribution> : Create a configuration files for given distribution"
    echo "   e.g. buster => buster.cfg (stable point) buster-updates (updates)"
    echo "    buster-updates-security.cfg (buster security updates)"
+   echo "-K : Clone the existing mirror using file links - to prune the old mirror"
    echo "-h : Print this usage information"
    echo "-n : Dry-run print commands instead of executing them"
    echo "-x : Enabling tracing of shell script"
@@ -86,7 +87,7 @@ EOF
 }
 
 
-while getopts 'nxhvdcfqC:M:' argv
+while getopts 'nxhvdcfqC:M:K' argv
 do
     case $argv in
     M)
@@ -105,6 +106,13 @@ do
             echo "Unable to read configuration file $DEF_FILE"
             exit 1
        fi
+    ;;
+    K)
+       KLONE="1"
+       OPTS="-create -uselinks $OPTS"
+       echo
+       echo "    Doing a local *clone*"
+       echo
     ;;
     n)
        echo "Dry-Run"
@@ -156,15 +164,37 @@ else
 fi
 
 echo "Running configuration files in $RM"
-$DR cd $RM
+cd $RM
 
 for cfg in ${CONFIGS[@]}; do
-    echo "Configuration $cfg:"
-    $DR $SCRIPT -c $cfg $OPTS
-    if [ -z "$DR" ]; then
-        cd $RM
-        $SCRIPT -c $cfg $OPTS
+    if [ -n "$KLONE" ]; then
+	if [ ! -r "$cfg" ]; then
+	    echo "Skipping $cfg - file missing"
+	    continue
+	fi
+	lmirror=$(awk '/^lmirror:/ { print $2 }' $cfg)
+	if [ -z "$lmirror" ]; then
+	    echo "Skipping $cfg - local mirror missing"
+	    continue
+	fi
+	ocfg="$cfg"
+	cfg="mirror-$ocfg"
+	nlmirror="$lmirror-clone"
+	echo "Cloning config $ocfg to $cfg with local mirror in "
+	if [ -z "$DR" ]; then
+    sed '
+     /^repository:/s#: .*#: file:///'"$RM/$lmirror"'#
+     /^lmirror:/s/: .*/: '"$nlmirror"'/' $ocfg > $cfg
+	else
+    $DR sed '
+     /^repository:/s#: .*#: file:///'"$RM/$lmirror"'#
+     /^lmirror:/s/: .*/: '"$nlmirror"'/' $ocfg \> $cfg
+	fi
     fi
+    echo "Configuration $cfg:"
+    echo  "*** $SCRIPT -c $cfg $OPTS ***"
+    $DR cd $RM
+    $DR $SCRIPT -c $cfg $OPTS
     echo
 done
 exit 0
