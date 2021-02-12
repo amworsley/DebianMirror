@@ -2,11 +2,17 @@
 
 # Hardcoded defaults Put overrides configuration into /etc/RepositoryMirror/RM.sh
 # Directory of RepositoryMirror 
-RM=/movies3/deb-mirror
-# Path to RepositoryMirror.py script
-RMPATH=.
-#SCRIPT=$RM/RepositoryMirror.py
-SCRIPT=/usr/local/bin/RepositoryMirror.py
+BPATH=$(dirname $0)
+SCRIPT=$BPATH/RepositoryMirror.py
+if [ -x "$SCRIPT" ]; then
+    RM="$BPATH"
+elif [ -x "/usr/local/bin/RepositoryMirror.py" ]; then
+    RM="/usr/local/bin"
+    SCRIPT=$RM/RepositoryMirror.py
+else
+    RM="/usr/bin"
+    SCRIPT=$RM/RepositoryMirror.py
+fi
 
 # Default configuration files
 # Old
@@ -17,16 +23,28 @@ DCONFIGS=( lts-stretch.cfg lts-stretch-updates-security.cfg
 OPTS=""
 
 # Put customisation configuration into DEF_FILE
-DEF_FILE=/etc/RepositoryMirror/RM-defs.sh
-if [ -e $DEF_FILE ]; then
+DEFS="RM-defs.sh"
+DEF_FILE=/etc/RepositoryMirror/$DEFS
+if [ -e "$BPATH/$DEFS" ]; then
+    DEF_FILE="$BPATH/$DEFS"
+    echo "Reading $DEF_FILE"
     . $DEF_FILE
+elif [ -e $DEF_FILE ]; then
+    echo "Reading $DEF_FILE"
+    . $DEF_FILE
+else
+    echo "Using defaults"
 fi
 
 usage()
 {
-   echo "$(basename $0): Update mirrors using RepositoryMirror.py script"
+   echo "$(basename $0) [options] <config-file> ..."
+   echo " Update mirrors using RepositoryMirror.py script"
    echo ""
    echo "-C <config> : Use <config> configuration script"
+   echo "-M <distribution> : Create a configuration files for given distribution"
+   echo "   e.g. buster => buster.cfg (stable point) buster-updates (updates)"
+   echo "    buster-updates-security.cfg (buster security updates)"
    echo "-h : Print this usage information"
    echo "-n : Dry-run print commands instead of executing them"
    echo "-x : Enabling tracing of shell script"
@@ -37,9 +55,47 @@ usage()
    echo "-q : only check sizes (not mdsums) - faster"
 }
 
-while getopts 'nxhvdcfqC:' argv
+mk_config () {
+    local D="$1"
+    local F="$D.cfg"
+    local R="http://ftp.au.debian.org/debian/"
+
+    echo
+    case $D in
+    *-updates-security)
+	R="http://security.debian.org/"
+	echo "Security Updates for ${D%-updates-security}"
+    ;;
+    *-updates)
+	echo "Updates for ${D%-updates}"
+    ;;
+    *)
+	echo "$D Release"
+    ;;
+    esac
+
+    echo "Configuration file $F"
+cat <<EOF
+[setup]
+repository: $R
+distribution: $D
+components: main contrib non-free icons Components
+architectures: armhf amd64 i386 arm64 all
+lmirror: deb-mirror
+EOF
+}
+
+
+while getopts 'nxhvdcfqC:M:' argv
 do
     case $argv in
+    M)
+       DIST="$OPTARG"
+       mk_config "$DIST"
+       mk_config "$DIST-updates"
+       mk_config "$DIST-updates-security"
+       DONE="1"
+    ;;
     C)
        DEF_FILE="$OPTARG"
        if [ -r $DEF_FILE ]; then
@@ -87,6 +143,10 @@ do
 done
 
 shift $(($OPTIND-1))
+
+if [ -n "$DONE" ]; then
+    exit 0
+fi
 
 if [ $# -le 0 ]; then
     echo "Using default configurations"
