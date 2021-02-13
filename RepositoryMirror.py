@@ -206,7 +206,13 @@ Dictionaries:
         cfg = ConfigParser()
         cfg.read(RepositoryMirror.cfgFile)
         setup = cfg['setup']
-        RepositoryMirror.repository = setup.get('repository', RepositoryMirror.repository)
+        d = setup.get('repository', None)
+        if d:
+            print("Mirroring repository %s" % d)
+        else:
+            d = RepositoryMirror.repository
+        print("Using default repository URL %s" % d)
+        RepositoryMirror.repository = d
         d = setup.get('distributions', None)
         if d:
             RepositoryMirror.distributions = d.split()
