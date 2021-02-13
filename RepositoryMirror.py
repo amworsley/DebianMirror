@@ -379,6 +379,7 @@ Dictionaries:
                     cfile.fetch()
                     pfile = cfile.tfile
                     pkg.modified = True
+                    pkg.missing = True
                     if checkFile(pfile, size=pkg.size, hash=hash, type=rel.hashtype):
                         pkg.missing = False
                         cfile.update()
@@ -388,7 +389,6 @@ Dictionaries:
                         print("Package file: %s missing" % pkg.name)
                     else:
                         print("Package file %s doesn't match" % pkg.name)
-                        pkg.missing = True
                 except Exception as e:
                     pkg.missing = True
                     print("Exception %s " % repr(e))
@@ -1581,7 +1581,7 @@ if __name__ == '__main__':
                         try:
                             start = gettime()
                             if not d.cfile.fetch():
-                                print("  Failed to fetch %s - skipping\n", d.name)
+                                print("  Failed to fetch %s - skipping\n" % d.fname)
                                 nfails += 1
                                 continue
                             d.cfile.update()
@@ -1601,7 +1601,7 @@ if __name__ == '__main__':
                                     print("  Downloaded in %.6f seconds = %.3f Gbit/s" % (elapsed, speed/1000000.))
 
                         except OSError:
-                            print("  Failed to fetch %s" % d.name)
+                            print("  Failed to fetch %s" % d.fname)
                             nfails += 1
 
     if nfails == 0:
