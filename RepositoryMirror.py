@@ -1149,6 +1149,7 @@ class CacheFile:
             self.ofile = os.path.join(CacheFile.tdir, CacheFile.ofile)
         self.tfile = tfile
         self.fetched = False
+        self.updated = False
 
     def fetch(self, tfile=None):
         ''' fetch a fresh copy of the file into tfile '''
@@ -1321,6 +1322,8 @@ class CacheFile:
         '''
 
         global args
+        if self.updated:
+            return True
         if ofile == None:
             ofile = self.ofile
         if tfile == None:
@@ -1332,6 +1335,7 @@ class CacheFile:
             else:
                 os.rename(tfile, ofile)
                 os.chmod(ofile, stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
+            self.updated = True
             return True
 
         except OSError as e:
