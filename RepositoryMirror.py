@@ -343,6 +343,8 @@ Dictionaries:
                         pkg.missing = True
                 else:
                     pkg.missing = True
+                    if verbose:
+                        print("checkRelEntryFile: Fetching url=%s failed" % url)
             else:
                 pkg.missing = True
         else:
@@ -369,6 +371,7 @@ Dictionaries:
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
+        pkg.modified = True # Assume worse case
         if check_hash:
             hash = pkg.hash
         else:
@@ -762,6 +765,7 @@ Holds summary of a Release file including:
         for l in fp:
             l = l.lstrip().rstrip()
             w = l.split()
+            if len(w) <= 0: continue
             if w[0] in { 'MD5Sum:', 'SHA1:', 'SHA256:' }:
                 #hash = w[0][0:-1]
                 #self.hashtype = hash
@@ -1218,17 +1222,37 @@ class CacheFile:
             elif content_type.endswith("x-gzip") and not url.endswith(".gz"):
                 print("File sent gzipped - gunzipping")
                 gzf = self.tfile + ".gz"
+                if debug >= 2:
+                    print("rename %s -> %s" % (self.tfile, gzf))
                 os.rename(self.tfile, gzf)
-                if subprocess.call(["gunzip", gzf]):
+                if subprocess.call(["gunzip", "-k", gzf]):
                     print(self.url, ": returned bad gzipp'ed file ", gzf)
                     return False
             elif content_type.endswith("x-bzip2") and not url.endswith(".bz2"):
                 print("File sent bzip2'ed - bunzipping")
                 bzf = self.tfile + ".bz2"
+                if debug >= 2:
+                    print("rename %s -> %s" % (self.tfile, bzf))
                 os.rename(self.tfile, bzf)
-                if subprocess.call(["bunzip2", bzf]):
+                if subprocess.call(["bunzip2", "-k", bzf]):
                     print(self.url, ": returned bad bzipp'ed file ", bzf)
+            elif content_type.endswith("x-xz"): # and not url.endswith(".xz"):
+                print("File sent xz'ed - unxzing")
+                bzf = self.tfile + ".xz"
+                os.rename(self.tfile, bzf)
+                if subprocess.call(["unxz", "-k", bzf]):
+                    print(self.url, ": returned bad xz'ed file ", bzf)
                     return False
+            elif content_type.endswith("application/x-debian-package") and url.endswith(".deb"):
+                print("File sent x-debian-package .deb - Ok")
+            elif content_type.endswith("application/vnd.debian.binary-package") and url.endswith(".deb"):
+                print("File sent vnd.debian.binary-package .deb - Ok")
+            elif content_type.endswith("application/octet-stream"):
+                print("File application/octet-stream sent - ok")
+            else:
+                print("Unsupported content-type: ", content_type)
+                return False
+
             if debug >= 2:
                 print("Fetched %s -> %s" % (self.url, self.tfile))
             return True
