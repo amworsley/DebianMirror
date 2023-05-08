@@ -1007,9 +1007,19 @@ class PkgFile():
         if debug > 0:
             print("rdPkgFile(%s, rfile=%s)" % (repr(self), str(rfile)))
         self.total_missing = 0
-        if self.ctype.endswith('bz2'):
+        if self.ctype.endswith('lzma'):
+            print("Package file ", rfile, " is xz'ed - unxzing")
+            if rfile.endswith('.xz'):
+                plain = rfile[:-3]
+            else:
+                plain = rfile + ".txt"
+                print(" Saving unxz-ed file to ", plain )
+            if subprocess.call(["unxz", "-k", "-f", rfile]):
+                print("  *** ", rfile, ": failed to unxz'ed  ***")
+                return False
+            fp = open(plain)
+        elif self.ctype.endswith('bz2'):
             fp = bz2.open(rfile, 'rt')
-            #fp = bz2.BZ2File(rfile, 'rt')
         elif self.ctype.endswith('gzip'):
             fp = gzip.open(rfile, 'rt')
         else:
@@ -1236,7 +1246,7 @@ class CacheFile:
                 os.rename(self.tfile, bzf)
                 if subprocess.call(["bunzip2", "-k", bzf]):
                     print(self.url, ": returned bad bzipp'ed file ", bzf)
-            elif content_type.endswith("x-xz"): # and not url.endswith(".xz"):
+            elif content_type.endswith("x-xz") and not url.endswith(".xz"):
                 print("File sent xz'ed - unxzing")
                 bzf = self.tfile + ".xz"
                 os.rename(self.tfile, bzf)
