@@ -228,8 +228,8 @@ Dictionaries:
         for d in RepositoryMirror.distributions:
             print("Checking distribution '", d, " : 'packages-'" + d, "'", sep='')
             pkglist = setup.get('packages-' + d, None)
-            print("pkglist for ", d, "is", pkglist)
             if pkglist:
+                print("  ** Restricted with pkglist: ", pkglist, " **")
                 pL[d] = pkglist
         if len(pL) > 0:
             RepositoryMirror.pkgLists = pL
@@ -437,8 +437,7 @@ Dictionaries:
             for d in self.dists:
                 dpath = os.path.join(self.lmirror, 'dists', d)
                 if os.path.isdir(dpath) == False:
-                    if verbose:
-                        print(("Missing mirror release directory: %s\n" +
+                    print(("Missing mirror release directory: %s\n" +
                             " - use -create to force it's creation") % dpath)
                     return False
         else:
