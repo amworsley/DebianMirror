@@ -508,6 +508,7 @@ the Mirror's release details from the source repository
                     print('%s - Release file unchanged ' % d)
 
         for r in self.relfiles.values():
+            o_missing = [] # Missing other entries
             if not r.present:
                 print('Skipping Release %s as Release file %s is missing' % (r.name, r.cfile.ofile))
                 continue
@@ -528,6 +529,7 @@ the Mirror's release details from the source repository
                 if pkg.missing:
                     self.updated = True
                     self.missing = True
+                    o_missing.append(pkg)
                     cnt += 1
                     continue
                 if update and pkg.modified:
@@ -539,7 +541,16 @@ the Mirror's release details from the source repository
                 #    missing += pkg.total_missing
                 #cnt += pkg.cnt
                 #print('Other File %s - needs updating' % (pkg.name ))
-            if args.verbose:
+            if len(o_missing) > 0:
+                print("%d missing other files - check for compressed versions"
+                    % len(o_missing))
+                for p in o_missing:
+                    suf = '.xz'
+                    f = p.cfile.ofile + suf
+                    if os.access(f, os.F_OK):
+                        print("Found %s - attempting to uncompress it" % f)
+                        if subprocess.call(["unxz", "-k", f]):
+                            print("  ** failed to unxz'ed file %s" % f)
                 print('Release %s - total %d' % (r.name, len(r.pkgFiles)))
             r.cnt = cnt
             self.cnt += cnt
@@ -1259,6 +1270,8 @@ class CacheFile:
                 print("File sent vnd.debian.binary-package .deb - Ok")
             elif content_type.endswith("application/octet-stream"):
                 print("File application/octet-stream sent - ok")
+            elif content_type.endswith("application/x-xz"):
+                print("File application/x-xz sent - ok")
             else:
                 print("Unsupported content-type: ", content_type)
                 return False
