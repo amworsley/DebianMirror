@@ -838,7 +838,7 @@ Holds summary of a Release file including:
                 continue
             if len(w) > 2 and 'Sources' in w[2]:
                 continue
-            if verbose:
+            if extra_verbose:
                 print("RelFile '%s' %d unknown package line: %s" % (rfile, len(w), l))
                 if args.debug:
                      print("w[2]='%s' " % (w[2]))
@@ -1050,7 +1050,7 @@ class PkgFile():
             if p == None:
                 break;
             if p.arch != self.arch and not args.any_arch_pf :
-                if args.verbose:
+                if args.extra_verbose:
                     print("Skipping %s unexpected architecture '%s' in %s package file"
                         % (p.name, p.arch, self.arch))
                 continue
@@ -1103,8 +1103,9 @@ class PkgFile():
             print("Package %s Total %d Ignored %d Examined %d Missing %d debs %s"
                 % (self.name, self.total, self.ignored, len(self.pkgs), self.cnt, sz_str))
         else:
-            print("Package %s Total %d, Ignored %d Examined %d: up to date - no missing debs"
-                % (self.name, self.total, self.ignored, len(self.pkgs), ))
+            if not args.quiet or self.ignored != 0:
+                print("Package %s Total %d, Ignored %d Examined %d: up to date - no missing debs"
+                    % (self.name, self.total, self.ignored, len(self.pkgs), ))
 
     def parsePfile(s):
         ''' Parse package line from Release file into tuple (component, arch, ctype)'''
@@ -1496,6 +1497,8 @@ if __name__ == '__main__':
         help='debug mode')
     parser.add_argument('-v', dest='verbose', action='store_true',
         help='verbose mode')
+    parser.add_argument('-Q', dest='quiet', action='store_true',
+        help='quiet mode')
     parser.add_argument('-e', dest='extra_verbose', action='store_true',
         help='extra verbose mode')
     parser.add_argument('-run_tests', dest='run_tests', action='store_true',
@@ -1615,7 +1618,8 @@ if __name__ == '__main__':
                 if args.timeout and gettime() >= args.timeout:
                     print("Time out expired skipping Package", pi.name," ...")
                     break
-                print("Checking package %s for missing debs" % (pi.name))
+                if args.verbose:
+                    print("Checking package %s for missing debs" % (pi.name))
                 if not pi.present:
                     print("  Skip missing package %s" % (pi.name))
                     continue

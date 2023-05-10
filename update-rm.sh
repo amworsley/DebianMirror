@@ -54,6 +54,7 @@ usage()
    echo "-c : Run with create mode"
    echo "-f : enable fetching of packages"
    echo "-q : only check sizes (not mdsums) - faster"
+   echo "-Q : quiet mode - less noisy info"
 }
 
 mk_config () {
@@ -87,7 +88,7 @@ EOF
 }
 
 
-while getopts 'nxhvdcfqC:M:K' argv
+while getopts 'nxhvdcfqQC:M:K' argv
 do
     case $argv in
     M)
@@ -146,6 +147,10 @@ do
     q)
         echo "Only check sizes (quicker)"
         OPTS="$OPTS -only-pkgs-size"
+    ;;
+    Q)
+        echo "Enable Quiet mode (no missing messages ...)"
+        OPTS="$OPTS -Q"
     ;;
     esac
 done
