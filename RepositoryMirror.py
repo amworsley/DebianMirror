@@ -379,7 +379,9 @@ Dictionaries:
         if not cfile.check(size=pkg.size, hash=hash, type=rel.hashtype):
             if update:
                 try:
-                    cfile.fetch()
+                    if not cfile.fetch():
+                        pkg.missing = True
+                        return pkg
                     pfile = cfile.tfile
                     pkg.modified = True
                     pkg.missing = True
@@ -612,6 +614,7 @@ Returns:
         cRelFile = self.checkReleaseFile(dist, cfile, update, sig_cfile)
         if cRelFile == None:
             cRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
+        cRelFile.validate(update)
         self.relfiles[dist] = cRelFile
         cRelFile.cfile = cfile
         return cRelFile
@@ -650,6 +653,9 @@ Returns:
         if args.verbose:
             print("%s has changed" % dist)
         oRelFile = RelFile(self, dist, cfile.ofile, sig_cfile)
+        if not cfile.fetch():
+            print("%s Unable to fetch Release file - using old one" % dist)
+            return oRelFile
         nRelFile = RelFile(self, dist, cfile.tfile, sig_cfile)
         nRelFile.changed = True
         newPkgs = frozenset(nRelFile.pkgFiles)
@@ -795,7 +801,7 @@ Holds summary of a Release file including:
                     if args.verbose:
                         print('Skipping diff index: ', f)
                     continue
-                pf = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
+                pf = PkgFile(rep, f, hash=w[0], size=int(w[1]), relfile=self)
                 nlist = f.split('.')
                 n = nlist[0]
                 if n in self.pkgItems:
@@ -807,7 +813,7 @@ Holds summary of a Release file including:
                 #if ctype == 'gzip':
                 #self.pkgFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
                 if verbose:
-                    print("Tracking package file %s" % (f))
+                    print("Tracking package file %s (size %d)" % (f, int(w[1])))
                 continue
             if len(w) > 2 and 'Translation' in w[2]:
                 if int(w[1]) == 0:
@@ -817,7 +823,7 @@ Holds summary of a Release file including:
                 if comp in RepositoryMirror.components \
                     and arch == 'Translation' and (f.endswith('-en')
                         or f.endswith('-en.bz2') or f.endswith('-en.xz')):
-                    self.otherFiles[f] = PkgFile(rep, f, hash=w[0], size=w[1], relfile=self)
+                    self.otherFiles[f] = PkgFile(rep, f, hash=w[0], size=int(w[1]), relfile=self)
                     if verbose:
                         print("Grab Translation %s" % (f))
                 continue
@@ -864,6 +870,29 @@ Holds summary of a Release file including:
             print("RelFile(%s rfile=%s hashtype=%s %d pkgItems %d pkgFiles %d otherFiles)" % (
                 self.name, self.rfile, self.hashtype, len(self.pkgItems),
                 len(self.pkgFiles), len(self.otherFiles)))
+
+    def validate(self, update=True):
+        ''' Check if items in Release file are present and correct'''
+        global args
+        rep = self.repMirror
+        for relfile_item in self.pkgItems.values():
+            for pkg in relfile_item.items:
+                path = rep.getPackagePath(self.name, pkg)
+                if not os.path.exists(path):
+                    if not args.quiet:
+                        print(" file: %s missing" % pkg.name)
+                    pkg.missing = True
+                    continue
+                if check_hash:
+                    hash = pkg.hash
+                else:
+                    hash = None
+                if not checkFile(path, size=pkg.size, hash=hash, type=self.hashtype):
+                    if update and not args.dry_run:
+                        print(" removing file %s doesn't match Release file" % path)
+                        os.unlink(path);
+                    else:
+                        print(" file %s doesn't match Release file" % path)
 
     def checkPackageItem(self, pi, update):
         ''' Check through all listed items and compare with files present
@@ -1180,6 +1209,10 @@ class CacheFile:
         if self.fetched:
             return True
         try:
+            if args.dry_run:
+                if args.verbose:
+                    print("Dry-Run Skip Fetching %s" % self.url)
+                return False
             if tfile:
                 self.tfile = tfile
                 of = open(tfile, 'wb')
@@ -1197,9 +1230,6 @@ class CacheFile:
 
             # Note: supports non-standard syntax for local
             # file "file:abc/def" means file at abd/def
-            if args.dry_run:
-                of.close()
-                return True
             req = urllib.request.Request(self.url)
             if req.type == 'file':
                 of.close()
