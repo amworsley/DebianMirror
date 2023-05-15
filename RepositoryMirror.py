@@ -183,6 +183,7 @@ Dictionaries:
         self.pkgfiles = {}
         self.debfiles = {}
         self.cnt = 0
+        self.allPackages = True
 
     cfgFile="RM.cfg"
     repository = 'http://web/security.debian.org'
@@ -905,7 +906,21 @@ Holds summary of a Release file including:
                 (repr(self), repr(pi), str(update)))
         rep = self.repMirror
         for pkg in pi.items:
-            if pi.present:
+            if rep.allPackages:
+                rep.checkPackage(self, pkg, update)
+                if pkg.modified:
+                    rep.updated = True
+                if pkg.missing:
+                   continue
+                pi.present = pkg
+                if verbose:
+                    print("processing Package file %s" % pi.name)
+                pkg.rdPkgFile(pkg.cfile.ofile)
+                if pkg.cnt > 0:
+                    print(pi.name, " missing ", pkg.cnt)
+                self.deb_missing += pkg.cnt
+                self.total_missing += pkg.total_missing
+            elif pi.present:
                 rep.checkPackage(self, pkg, False)
             else:
                 rep.checkPackage(self, pkg, update)
@@ -914,6 +929,8 @@ Holds summary of a Release file including:
                 if not pkg.missing:
                     pi.present = pkg
                     break
+        if rep.allPackages:
+            return
         if not pi.present:
             return
         if verbose:
@@ -1303,6 +1320,8 @@ class CacheFile:
                 print("File application/octet-stream sent - ok")
             elif content_type.endswith("application/x-xz"):
                 print("File application/x-xz sent - ok")
+            elif content_type.endswith("application/x-gzip"):
+                print("File application/x-gzip sent - ok")
             else:
                 print("Unsupported content-type: ", content_type)
                 return False
@@ -1537,6 +1556,8 @@ if __name__ == '__main__':
         help='Create Repository if missing')
     parser.add_argument('-fetch', dest='fetch', action='store_true',
         help='fetch missing packages')
+    parser.add_argument('-one-package-file', dest='onePackageFile', action='store_true',
+        help='fetch all package files (gzipped, ...)')
     parser.add_argument('-uselinks', dest='uselinks', action='store_true',
         help='URLs are local files - use links to save space')
     parser.add_argument('-norefresh', dest='update', action='store_false',
@@ -1582,6 +1603,8 @@ if __name__ == '__main__':
         repM.dump_info()
         repM.cleanUp()
 
+    if args.onePackageFile:
+        repM.allPackages = False
     nfails = 0
     if repM.skeletonCheck(args.create) != True:
         print("Unable to set up repository mirror for %s at %s"
