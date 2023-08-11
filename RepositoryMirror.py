@@ -1322,6 +1322,8 @@ class CacheFile:
                 print("File application/x-xz sent - ok")
             elif content_type.endswith("application/x-gzip"):
                 print("File application/x-gzip sent - ok")
+            elif content_type.endswith("application/x-bzip2"):
+                print("File application/bzip2 sent - ok")
             else:
                 print("Unsupported content-type: ", content_type)
                 return False
