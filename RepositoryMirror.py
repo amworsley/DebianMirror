@@ -552,7 +552,7 @@ the Mirror's release details from the source repository
                     f = p.cfile.ofile + suf
                     if os.access(f, os.F_OK):
                         print("Found %s - attempting to uncompress it" % f)
-                        if subprocess.call(["unxz", "-k", f]):
+                        if subprocess.call(["unxz", "-k", "-f", f]):
                             print("  ** failed to unxz'ed file %s" % f)
                 print('Release %s - total %d' % (r.name, len(r.pkgFiles)))
             r.cnt = cnt
@@ -1294,7 +1294,7 @@ class CacheFile:
                 if debug >= 2:
                     print("rename %s -> %s" % (self.tfile, gzf))
                 os.rename(self.tfile, gzf)
-                if subprocess.call(["gunzip", "-k", gzf]):
+                if subprocess.call(["gunzip", "-k", "-f", gzf]):
                     print(self.url, ": returned bad gzipp'ed file ", gzf)
                     return False
             elif content_type.endswith("x-bzip2") and not url.endswith(".bz2"):
@@ -1303,13 +1303,13 @@ class CacheFile:
                 if debug >= 2:
                     print("rename %s -> %s" % (self.tfile, bzf))
                 os.rename(self.tfile, bzf)
-                if subprocess.call(["bunzip2", "-k", bzf]):
+                if subprocess.call(["bunzip2", "-k", "-f", bzf]):
                     print(self.url, ": returned bad bzipp'ed file ", bzf)
             elif content_type.endswith("x-xz") and not url.endswith(".xz"):
                 print("File sent xz'ed - unxzing")
                 bzf = self.tfile + ".xz"
                 os.rename(self.tfile, bzf)
-                if subprocess.call(["unxz", "-k", bzf]):
+                if subprocess.call(["unxz", "-k", "-f", bzf]):
                     print(self.url, ": returned bad xz'ed file ", bzf)
                     return False
             elif content_type.endswith("application/x-debian-package") and url.endswith(".deb"):
