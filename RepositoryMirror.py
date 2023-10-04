@@ -223,6 +223,9 @@ Dictionaries:
         d = setup.get('architectures', None)
         if d:
             RepositoryMirror.architectures = d.split()
+        d = setup.get('options', None)
+        if d:
+            RepositoryMirror.cfg_options = d.split()
         RepositoryMirror.tdir = setup.get('tdir', RepositoryMirror.tdir)
         RepositoryMirror.lmirror = setup.get('lmirror', RepositoryMirror.lmirror)
         pL = {}
@@ -1599,6 +1602,10 @@ if __name__ == '__main__':
 
     RepositoryMirror.cfgFile = args.cfgFile
     RepositoryMirror.config()
+    if RepositoryMirror.cfg_options:
+        if verbose: print(" Adding options from configuration file:\n  ",
+            RepositoryMirror.cfg_options)
+        args = parser.parse_args(RepositoryMirror.cfg_options, namespace=args)
     repM = RepositoryMirror()
 
     if args.info:
