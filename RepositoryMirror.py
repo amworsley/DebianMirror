@@ -226,6 +226,8 @@ Dictionaries:
         d = setup.get('options', None)
         if d:
             RepositoryMirror.cfg_options = d.split()
+        else:
+            RepositoryMirror.cfg_options = None
         RepositoryMirror.tdir = setup.get('tdir', RepositoryMirror.tdir)
         RepositoryMirror.lmirror = setup.get('lmirror', RepositoryMirror.lmirror)
         pL = {}
