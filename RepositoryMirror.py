@@ -90,8 +90,8 @@ def checkFile(file, size=None, hash=None, type='MD5Sum'):
                 m.update(bof)
             if hash != m.hexdigest():
                 if verbose:
-                    print("file %s hash=%s type=%s != %s - %s"
-                        % (file, hash, str(type), m.hexdigest()))
+                    print("file %s hash=%s != %s type=%s"
+                        % (file, hash, m.hexdigest(), str(type)))
                 return False
             return True
 
