@@ -30,6 +30,7 @@ extra_verbose = False
 dry_run = False
 very_dry_run = False
 check_hash = True
+check_pkg_hash = True
 debug = 0
 
 os.umask(0o22)
@@ -328,7 +329,7 @@ Dictionaries:
         path = self.getPackagePath(rel.name, pkg)
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
-        if check_hash:
+        if check_pkg_hash:
             hash = pkg.hash
         else:
             hash = None
@@ -378,7 +379,7 @@ Dictionaries:
         url = self.getPackageURL(rel.name, pkg)
         pkg.cfile = cfile = CacheFile(url, ofile=path)
         pkg.modified = True # Assume worse case
-        if check_hash:
+        if check_pkg_hash:
             hash = pkg.hash
         else:
             hash = None
@@ -889,10 +890,10 @@ Holds summary of a Release file including:
                         print(" file: %s missing" % pkg.name)
                     pkg.missing = True
                     continue
-                if check_hash:
-                    hash = pkg.hash
-                else:
-                    hash = None
+                #if check_hash:
+                hash = pkg.hash
+                #else:
+                #    hash = None
                 if not checkFile(path, size=pkg.size, hash=hash, type=self.hashtype):
                     if update and not args.dry_run:
                         print(" removing file %s doesn't match Release file" % path)
